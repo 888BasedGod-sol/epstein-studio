@@ -54,6 +54,7 @@ let starDrag = null;
 let currentPdfKey = null;
 const pdfState = new Map();
 let pagesMeta = [];
+let autoPanActive = false;
 let contextTarget = null;
 
 function setActiveTab(tabId) {
@@ -142,9 +143,15 @@ function setActiveGroup(group) {
     const { editor } = getGroupElements(activeGroup);
     editor.removeAttribute("contenteditable");
     editor.classList.remove("editable-text");
+    activeGroup.classList.remove("active");
+    stopAutoPan();
   }
   activeGroup = group;
   if (!group) return;
+  group.classList.add("active");
+  const { box, handle } = getGroupElements(group);
+  if (box) box.style.display = "";
+  if (handle) handle.style.display = "";
   const { editor } = getGroupElements(group);
   const computed = window.getComputedStyle(editor);
   const storedFont = group.dataset.font;
@@ -178,6 +185,11 @@ function deactivateActiveGroup() {
   const text = (editor.textContent || "").trim();
   editor.removeAttribute("contenteditable");
   editor.classList.remove("editable-text");
+  activeGroup.classList.remove("active");
+  stopAutoPan();
+  const { box, handle } = getGroupElements(activeGroup);
+  if (box) box.style.display = "none";
+  if (handle) handle.style.display = "none";
   const selection = window.getSelection();
   if (selection) selection.removeAllRanges();
   if (!text || text === "Text") {
@@ -185,6 +197,62 @@ function deactivateActiveGroup() {
   }
   activeGroup = null;
   updateTabStates();
+}
+
+function ensureActiveBoxInView() {
+  if (!activeGroup) return;
+  const { editor } = getGroupElements(activeGroup);
+  if (!editor) return;
+  let caretRect = null;
+  const selection = window.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    if (editor.contains(range.startContainer)) {
+      caretRect = range.getBoundingClientRect();
+    }
+  }
+  if (!caretRect || caretRect.width === 0) {
+    caretRect = editor.getBoundingClientRect();
+  }
+  const marginX = VIEW_W * 0.05;
+  const marginY = VIEW_H * 0.05;
+  const toSvgPoint = (x, y) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = x;
+    pt.y = y;
+    const result = pt.matrixTransform(matrix.inverse());
+    return { x: result.x, y: result.y };
+  };
+  const leftTop = toSvgPoint(caretRect.left, caretRect.top);
+  const rightBottom = toSvgPoint(caretRect.right, caretRect.bottom);
+  let dx = 0;
+  let dy = 0;
+  if (rightBottom.x > VIEW_W - marginX) {
+    dx = VIEW_W - marginX - rightBottom.x;
+  }
+  if (leftTop.y < marginY) {
+    dy = marginY - leftTop.y;
+  } else if (rightBottom.y > VIEW_H - marginY) {
+    dy = VIEW_H - marginY - rightBottom.y;
+  }
+  if (dx !== 0 || dy !== 0) {
+    view.x += dx;
+    view.y += dy;
+    clampViewX();
+    setViewportTransform();
+  }
+}
+
+function startAutoPan() {
+  if (autoPanActive) return;
+  autoPanActive = true;
+  ensureActiveBoxInView();
+}
+
+function stopAutoPan() {
+  autoPanActive = false;
 }
 
 function updateTabStates() {
@@ -315,6 +383,14 @@ function createTextBox(x, y) {
   editor.setAttribute("contenteditable", "true");
   editor.setAttribute("spellcheck", "false");
   editor.addEventListener("input", () => updateBox(group));
+  editor.addEventListener("focus", startAutoPan);
+  editor.addEventListener("blur", stopAutoPan);
+  editor.addEventListener("keyup", () => {
+    if (autoPanActive) ensureActiveBoxInView();
+  });
+  editor.addEventListener("mouseup", () => {
+    if (autoPanActive) ensureActiveBoxInView();
+  });
   foreignObject.appendChild(editor);
 
   const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -971,7 +1047,13 @@ notesInput.addEventListener("input", () => {
   }
 });
 
-textLayer.addEventListener("pointerdown", onDragStart);
+textLayer.addEventListener("pointerdown", (evt) => {
+  const group = evt.target.closest(".text-group");
+  if (group) {
+    setActiveGroup(group);
+  }
+  onDragStart(evt);
+});
 textLayer.addEventListener("dblclick", onDoubleClick);
 textLayer.addEventListener("contextmenu", (evt) => {
   const group = evt.target.closest(".text-group");

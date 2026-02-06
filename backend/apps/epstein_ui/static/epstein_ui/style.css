@@ -285,7 +285,9 @@ body {
 
 .file-title {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 36px !important;
+  font-weight: 800 !important;
+  line-height: 1.2;
   color: var(--text);
   word-break: break-all;
 }
@@ -401,6 +403,11 @@ image {
   stroke: #0a120a;
   stroke-width: 2;
   cursor: nwse-resize;
+}
+
+.text-group:not(.active) .text-box,
+.text-group:not(.active) .resize-handle {
+  display: none;
 }
 
 .text-group {

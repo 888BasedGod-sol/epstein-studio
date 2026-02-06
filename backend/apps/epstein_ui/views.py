@@ -49,10 +49,9 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_base = out_dir / "page"
 
-    pages = _get_pdf_pages(pdf_path)
-    expected = [out_dir / f"page-{i}.png" for i in range(1, pages + 1)]
-    if all(p.exists() for p in expected):
-        return expected
+    existing = sorted(out_dir.glob("page-*.png"))
+    if existing:
+        return existing
 
     cmd = [
         "pdftoppm",
@@ -65,7 +64,10 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "pdftoppm failed")
-    return expected
+    rendered = sorted(out_dir.glob("page-*.png"))
+    if not rendered:
+        raise RuntimeError("pdftoppm produced no pages")
+    return rendered
 
 
 def index(request):
@@ -96,7 +98,7 @@ def random_pdf(request):
 
     return JsonResponse({
         "pages": pages,
-        "pdf": str(pdf_path),
+        "pdf": pdf_path.name,
     })
 
 
@@ -129,5 +131,5 @@ def search_pdf(request):
 
     return JsonResponse({
         "pages": pages,
-        "pdf": str(pdf_path),
+        "pdf": pdf_path.name,
     })
