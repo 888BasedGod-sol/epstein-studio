@@ -68,6 +68,7 @@ let annotationCounter = 0;
 const annotations = new Map();
 let annotationPreview = null;
 const annotationAnchors = new Map();
+let suppressNextTextCreate = false;
 
 sizeRange.value = DEFAULT_TEXT_SIZE;
 sizeInput.value = DEFAULT_TEXT_SIZE;
@@ -868,22 +869,69 @@ function handleNotesClick() {
   return;
 }
 
-function onDoubleClick(evt) {
+function onTextClick(evt) {
   if (!isAuthenticated) return;
   if (!activeAnnotationId) return;
   if (activeTab !== "text") return;
+  if (evt.target.classList.contains("resize-handle")) return;
   const group = evt.target.closest(".text-group");
   if (group) {
     const { editor } = getGroupElements(group);
     setActiveGroup(group);
     editor.setAttribute("contenteditable", "true");
     editor.classList.add("editable-text");
-    selectAllText(editor);
+    if (evt.detail >= 3) {
+      selectAllText(editor);
+    } else if (evt.detail === 2) {
+      if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(evt.clientX, evt.clientY);
+        if (range && editor.contains(range.startContainer)) {
+          const wordRange = range.cloneRange();
+          wordRange.expand("word");
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(wordRange);
+        }
+      }
+    } else {
+      const setCaretAtPoint = (x, y) => {
+        if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(x, y);
+          if (pos && editor.contains(pos.offsetNode)) {
+            const range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return true;
+          }
+        } else if (document.caretRangeFromPoint) {
+          const range = document.caretRangeFromPoint(x, y);
+          if (range && editor.contains(range.startContainer)) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return true;
+          }
+        }
+        return false;
+      };
+      setCaretAtPoint(evt.clientX, evt.clientY);
+    }
     editor.focus();
     evt.preventDefault();
     return;
   }
   const point = svgPointInViewport(evt);
+  if (activeGroup) {
+    const { editor } = getGroupElements(activeGroup);
+    if (editor && editor.isContentEditable) return;
+  }
+  if (suppressNextTextCreate) {
+    suppressNextTextCreate = false;
+    return;
+  }
   createTextBox(point.x, point.y);
 }
 
@@ -1168,7 +1216,12 @@ textLayer.addEventListener("pointerdown", (evt) => {
   }
   onDragStart(evt);
 });
-textLayer.addEventListener("dblclick", onDoubleClick);
+svg.addEventListener("click", (evt) => {
+  if (evt.button && evt.button !== 0) return;
+  if (annotationCreateMode) return;
+  if (isResizing) return;
+  onTextClick(evt);
+});
 textLayer.addEventListener("contextmenu", (evt) => {
   if (!isAuthenticated) return;
   const group = evt.target.closest(".text-group");
@@ -1274,7 +1327,6 @@ svg.addEventListener("pointerdown", (evt) => {
     }
   }
 });
-svg.addEventListener("dblclick", onDoubleClick);
 textLayer.addEventListener("pointerdown", (evt) => {
   if (!isAuthenticated) return;
   if (evt.target.classList.contains("resize-handle")) {
@@ -1395,6 +1447,7 @@ window.addEventListener("pointerdown", (evt) => {
   if (!evt.target.closest(".text-group")) {
     if (activeGroup) {
       deactivateActiveGroup();
+      suppressNextTextCreate = true;
     }
   }
 });
