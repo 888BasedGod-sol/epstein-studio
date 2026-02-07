@@ -1,4 +1,6 @@
 const svg = document.getElementById("overlay");
+window.DEBUG_MODE = true;
+const DEBUG_PDF_NAME = "EFTA02731646.pdf";
 const viewport = document.getElementById("viewport");
 const pdfPages = document.getElementById("pdfPages");
 const hintLayer = document.getElementById("hintLayer");
@@ -190,6 +192,7 @@ function discardActiveAnnotation() {
   annotations.delete(id);
   activeAnnotationId = null;
   ensureAnnotationMode();
+  saveAnnotationsForPdf();
 }
 
 function commitActiveAnnotation() {
@@ -199,6 +202,7 @@ function commitActiveAnnotation() {
   setAnnotationElementsVisible(id, false);
   activeAnnotationId = null;
   ensureAnnotationMode();
+  saveAnnotationsForPdf();
 }
 
 function ensureLegacyAnnotation() {
@@ -1035,6 +1039,123 @@ function loadStateForPdf(key) {
   ensureAnnotationMode();
 }
 
+async function loadAnnotationsForPdf(pdfName) {
+  if (!pdfName) return;
+  try {
+    const response = await fetch(`/annotations/?pdf=${encodeURIComponent(pdfName)}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data.annotations) return;
+    const annotationsPayload = [];
+    const textItems = [];
+    const arrows = [];
+    data.annotations.forEach((ann) => {
+      annotationsPayload.push({
+        id: ann.id,
+        x: ann.x,
+        y: ann.y,
+        note: ann.note || "",
+      });
+      (ann.textItems || []).forEach((item) => {
+        textItems.push({
+          annotationId: ann.id,
+          x: item.x,
+          y: item.y,
+          text: item.text || "",
+          fontFamily: item.fontFamily,
+          fontSize: item.fontSize,
+          fontWeight: item.fontWeight,
+          fontStyle: item.fontStyle,
+          fontKerning: item.fontKerning,
+          fontFeatureSettings: item.fontFeatureSettings,
+          color: item.color,
+          opacity: item.opacity,
+        });
+      });
+      (ann.arrows || []).forEach((arrow) => {
+        arrows.push({
+          annotationId: ann.id,
+          x1: arrow.x1,
+          y1: arrow.y1,
+          x2: arrow.x2,
+          y2: arrow.y2,
+        });
+      });
+    });
+    pdfState.set(pdfName, { annotations: annotationsPayload, textItems, arrows });
+    loadStateForPdf(pdfName);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function saveAnnotationsForPdf() {
+  if (!currentPdfKey) return;
+  if (!isAuthenticated) return;
+  const payload = {
+    pdf: currentPdfKey,
+    annotations: Array.from(annotations.values()).map((ann) => {
+      const textItems = Array.from(textLayer.querySelectorAll(".text-group"))
+        .filter((group) => group.dataset.annotation === ann.id)
+        .map((group) => {
+          const { editor } = getGroupElements(group);
+          const pos = parseTranslate(group.getAttribute("transform") || "translate(0 0)");
+          const computed = window.getComputedStyle(editor);
+          return {
+            x: pos.x,
+            y: pos.y,
+            text: editor.textContent || "",
+            fontFamily: group.dataset.font || computed.fontFamily,
+            fontSize: computed.fontSize,
+            fontWeight: computed.fontWeight,
+            fontStyle: computed.fontStyle,
+            fontKerning: computed.fontKerning,
+            fontFeatureSettings: computed.fontFeatureSettings,
+            color: computed.color,
+            opacity: parseFloat(computed.opacity) || 1,
+          };
+        });
+      const arrows = Array.from(hintLayer.querySelectorAll('g[data-type="arrow"]'))
+        .filter((group) => group.dataset.annotation === ann.id)
+        .map((group) => {
+          const line = group.querySelector(".hint-arrow-line");
+          const handles = group.querySelectorAll(".hint-handle");
+          if (handles.length === 2) {
+            return {
+              x1: parseFloat(handles[0].getAttribute("cx")),
+              y1: parseFloat(handles[0].getAttribute("cy")),
+              x2: parseFloat(handles[1].getAttribute("cx")),
+              y2: parseFloat(handles[1].getAttribute("cy")),
+            };
+          }
+          return {
+            x1: parseFloat(line.getAttribute("x1")),
+            y1: parseFloat(line.getAttribute("y1")),
+            x2: parseFloat(line.dataset.rawX2 || line.getAttribute("x2")),
+            y2: parseFloat(line.dataset.rawY2 || line.getAttribute("y2")),
+          };
+        });
+      return {
+        id: ann.id,
+        x: ann.x,
+        y: ann.y,
+        note: ann.note || "",
+        textItems,
+        arrows,
+      };
+    }),
+  };
+  try {
+    await fetch("/annotations/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function buildPageImages(container, pages, withLabels = false) {
   clearPages(container);
   let offsetY = 0;
@@ -1116,6 +1237,7 @@ async function fetchRandomPdf() {
     const data = await response.json();
     if (data.pages && data.pages.length) {
       syncPages(data.pages, data.pdf || "");
+      loadAnnotationsForPdf(data.pdf || "");
     }
   } catch (err) {
     console.error(err);
@@ -1138,6 +1260,7 @@ async function searchPdf() {
     const data = await response.json();
     if (data.pages && data.pages.length) {
       syncPages(data.pages, data.pdf || "");
+      loadAnnotationsForPdf(data.pdf || "");
     }
   } catch (err) {
     console.error(err);
@@ -1481,6 +1604,11 @@ discardAnnotationBtn.addEventListener("click", () => {
 
 setActiveTab("notes");
 setViewportTransform();
-fetchRandomPdf();
+if (window.DEBUG_MODE) {
+  searchInput.value = DEBUG_PDF_NAME;
+  searchPdf();
+} else {
+  fetchRandomPdf();
+}
 window.addEventListener("resize", () => fitToView(true));
 ensureAnnotationMode();
