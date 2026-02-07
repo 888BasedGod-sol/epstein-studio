@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import random
 import subprocess
@@ -11,6 +12,9 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
+from django.views.decorators.csrf import csrf_exempt
+
+from .models import Annotation, TextItem, ArrowItem
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -152,3 +156,108 @@ def register(request):
 def logout_view(request):
     logout(request)
     return redirect("index")
+
+
+def _annotation_to_dict(annotation: Annotation) -> dict:
+    return {
+        "id": annotation.client_id,
+        "pdf": annotation.pdf_key,
+        "user": annotation.user.username,
+        "x": annotation.x,
+        "y": annotation.y,
+        "note": annotation.note or "",
+        "textItems": [
+            {
+                "x": item.x,
+                "y": item.y,
+                "text": item.text,
+                "fontFamily": item.font_family,
+                "fontSize": item.font_size,
+                "fontWeight": item.font_weight,
+                "fontStyle": item.font_style,
+                "fontKerning": item.font_kerning,
+                "fontFeatureSettings": item.font_feature_settings,
+                "color": item.color,
+                "opacity": item.opacity,
+            }
+            for item in annotation.text_items.all()
+        ],
+        "arrows": [
+            {"x1": arrow.x1, "y1": arrow.y1, "x2": arrow.x2, "y2": arrow.y2}
+            for arrow in annotation.arrow_items.all()
+        ],
+    }
+
+
+@csrf_exempt
+def annotations_api(request):
+    if request.method == "GET":
+        pdf_key = (request.GET.get("pdf") or "").strip()
+        if not pdf_key:
+            return JsonResponse({"error": "Missing pdf"}, status=400)
+        annotations = (
+            Annotation.objects.filter(pdf_key=pdf_key)
+            .select_related("user")
+            .prefetch_related("text_items", "arrow_items")
+        )
+        return JsonResponse({"annotations": [_annotation_to_dict(a) for a in annotations]})
+
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Login required"}, status=401)
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        pdf_key = (payload.get("pdf") or "").strip()
+        annotations_payload = payload.get("annotations") or []
+        if not pdf_key:
+            return JsonResponse({"error": "Missing pdf"}, status=400)
+
+        seen_ids = set()
+        for ann in annotations_payload:
+            client_id = str(ann.get("id") or "").strip()
+            if not client_id:
+                continue
+            seen_ids.add(client_id)
+            annotation_obj, _ = Annotation.objects.update_or_create(
+                pdf_key=pdf_key,
+                user=request.user,
+                client_id=client_id,
+                defaults={
+                    "x": float(ann.get("x", 0)),
+                    "y": float(ann.get("y", 0)),
+                    "note": ann.get("note") or "",
+                },
+            )
+            TextItem.objects.filter(annotation=annotation_obj).delete()
+            ArrowItem.objects.filter(annotation=annotation_obj).delete()
+
+            for item in ann.get("textItems", []):
+                TextItem.objects.create(
+                    annotation=annotation_obj,
+                    x=float(item.get("x", 0)),
+                    y=float(item.get("y", 0)),
+                    text=item.get("text", "") or "",
+                    font_family=item.get("fontFamily", "") or "",
+                    font_size=item.get("fontSize", "") or "",
+                    font_weight=item.get("fontWeight", "") or "",
+                    font_style=item.get("fontStyle", "") or "",
+                    font_kerning=item.get("fontKerning", "") or "",
+                    font_feature_settings=item.get("fontFeatureSettings", "") or "",
+                    color=item.get("color", "") or "",
+                    opacity=float(item.get("opacity", 1) or 1),
+                )
+            for arrow in ann.get("arrows", []):
+                ArrowItem.objects.create(
+                    annotation=annotation_obj,
+                    x1=float(arrow.get("x1", 0)),
+                    y1=float(arrow.get("y1", 0)),
+                    x2=float(arrow.get("x2", 0)),
+                    y2=float(arrow.get("y2", 0)),
+                )
+
+        Annotation.objects.filter(pdf_key=pdf_key, user=request.user).exclude(client_id__in=seen_ids).delete()
+        return JsonResponse({"ok": True})
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)

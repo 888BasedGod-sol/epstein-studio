@@ -7,4 +7,5 @@ urlpatterns = [
     path("search-pdf/", views.search_pdf, name="search_pdf"),
     path("register/", views.register, name="register"),
     path("logout/", views.logout_view, name="logout"),
+    path("annotations/", views.annotations_api, name="annotations_api"),
 ]
