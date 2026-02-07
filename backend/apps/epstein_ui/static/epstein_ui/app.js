@@ -27,6 +27,7 @@ const notesInput = document.getElementById("notesInput");
 const boldToggle = document.getElementById("boldToggle");
 const italicToggle = document.getElementById("italicToggle");
 const contextMenu = document.getElementById("contextMenu");
+const isAuthenticated = document.body.dataset.auth === "1";
 
 let dragState = null;
 let resizeState = null;
@@ -59,6 +60,13 @@ let contextTarget = null;
 
 sizeRange.value = DEFAULT_TEXT_SIZE;
 sizeInput.value = DEFAULT_TEXT_SIZE;
+
+if (!isAuthenticated) {
+  document.body.classList.add("read-only");
+  document.querySelectorAll(".panel input, .panel select, .panel textarea, .panel button").forEach((el) => {
+    el.disabled = true;
+  });
+}
 
 function setActiveTab(tabId) {
   activeTab = tabId;
@@ -370,6 +378,7 @@ function selectAllText(editor) {
 }
 
 function createTextBox(x, y) {
+  if (!isAuthenticated) return null;
   const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
   group.classList.add("text-group");
   setTranslate(group, x, y);
@@ -454,6 +463,7 @@ function createTextBoxFromData(data) {
 }
 
 function onDragStart(evt) {
+  if (!isAuthenticated) return;
   const group = evt.target.closest(".text-group");
   if (!group) return;
   if (evt.target.closest(".text-editor")) return;
@@ -484,6 +494,7 @@ function onDragEnd() {
 }
 
 function onResizeStart(evt) {
+  if (!isAuthenticated) return;
   const group = evt.target.closest(".text-group");
   if (!group) return;
   isResizing = true;
@@ -781,6 +792,7 @@ function handleNotesClick(point) {
 }
 
 function onDoubleClick(evt) {
+  if (!isAuthenticated) return;
   if (activeTab !== "text") return;
   const group = evt.target.closest(".text-group");
   if (group) {
@@ -1046,6 +1058,7 @@ notesInput.addEventListener("input", () => {
 });
 
 textLayer.addEventListener("pointerdown", (evt) => {
+  if (!isAuthenticated) return;
   const group = evt.target.closest(".text-group");
   if (group) {
     setActiveGroup(group);
@@ -1054,12 +1067,14 @@ textLayer.addEventListener("pointerdown", (evt) => {
 });
 textLayer.addEventListener("dblclick", onDoubleClick);
 textLayer.addEventListener("contextmenu", (evt) => {
+  if (!isAuthenticated) return;
   const group = evt.target.closest(".text-group");
   if (!group) return;
   evt.preventDefault();
   openContextMenu(evt.clientX, evt.clientY, { type: "text", group });
 });
 hintLayer.addEventListener("pointerdown", (evt) => {
+  if (!isAuthenticated) return;
   if (arrowStart) return;
   const group = evt.target.closest("g");
   if (!group) return;
@@ -1092,6 +1107,7 @@ hintLayer.addEventListener("pointerdown", (evt) => {
   }
 });
 hintLayer.addEventListener("contextmenu", (evt) => {
+  if (!isAuthenticated) return;
   const group = evt.target.closest("g");
   if (!group) return;
   evt.preventDefault();
@@ -1106,6 +1122,7 @@ svg.addEventListener("pointerdown", (evt) => {
     onPanStart(evt);
     return;
   }
+  if (!isAuthenticated) return;
   if (activeTab === "hints") {
     if (activeHint) {
       hideHintHandles(activeHint);
@@ -1146,6 +1163,7 @@ svg.addEventListener("pointerdown", (evt) => {
 });
 svg.addEventListener("dblclick", onDoubleClick);
 textLayer.addEventListener("pointerdown", (evt) => {
+  if (!isAuthenticated) return;
   if (evt.target.classList.contains("resize-handle")) {
     onResizeStart(evt);
   }
@@ -1215,6 +1233,7 @@ minimapPageInput.addEventListener("change", () => {
 });
 
 contextMenu.addEventListener("click", (evt) => {
+  if (!isAuthenticated) return;
   const action = evt.target.dataset.action;
   if (!action || !contextTarget) return;
   const { type, group } = contextTarget;

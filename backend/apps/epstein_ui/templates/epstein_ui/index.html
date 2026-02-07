@@ -7,7 +7,7 @@
     <title>Redaction Overlay Studio</title>
     <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
   </head>
-  <body>
+  <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}">
     <div class="page">
       <div id="contextMenu" class="context-menu">
         <button data-action="edit">Edit</button>
@@ -16,17 +16,21 @@
       <header class="topbar">
         <div class="topbar-row">
           <div class="brand">Epstein Studio</div>
-          <details class="account-menu">
-            <summary class="account-button" aria-label="Account menu">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="8" r="4"></circle>
-                <path d="M4 20c1.7-3.6 5-6 8-6s6.3 2.4 8 6"></path>
-              </svg>
-            </summary>
-            <div class="account-dropdown">
-              <a class="account-link" href="/logout/">Logout</a>
-            </div>
-          </details>
+          {% if user.is_authenticated %}
+            <details class="account-menu">
+              <summary class="account-button" aria-label="Account menu">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4"></circle>
+                  <path d="M4 20c1.7-3.6 5-6 8-6s6.3 2.4 8 6"></path>
+                </svg>
+              </summary>
+              <div class="account-dropdown">
+                <a class="account-link" href="/logout/">Logout</a>
+              </div>
+            </details>
+          {% else %}
+            <a class="btn" href="/login/">Login</a>
+          {% endif %}
         </div>
       </header>
 

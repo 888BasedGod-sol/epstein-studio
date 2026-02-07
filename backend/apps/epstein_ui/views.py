@@ -9,7 +9,6 @@ import shutil
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
 
@@ -73,12 +72,10 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
     return rendered
 
 
-@login_required
 def index(request):
     return render(request, "epstein_ui/index.html")
 
 
-@login_required
 def random_pdf(request):
     pdfs = _list_pdfs()
     if not pdfs:
@@ -107,7 +104,6 @@ def random_pdf(request):
     })
 
 
-@login_required
 def search_pdf(request):
     query = (request.GET.get("q") or "").strip()
     if not query:
@@ -155,4 +151,4 @@ def register(request):
 
 def logout_view(request):
     logout(request)
-    return redirect("login")
+    return redirect("index")

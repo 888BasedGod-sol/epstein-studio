@@ -85,6 +85,11 @@ body {
   overflow: hidden;
 }
 
+.read-only .panel {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .page {
   height: 100vh;
   padding: 28px clamp(20px, 4vw, 52px) 40px;
