@@ -563,6 +563,14 @@ function createTextBox(x, y) {
   textLayer.appendChild(group);
 
   applyStylesToGroup(group);
+  requestAnimationFrame(() => {
+    if (!group.isConnected) return;
+    const { editor } = getGroupElements(group);
+    if (!editor) return;
+    const boxWidth = Math.max(20, editor.scrollWidth) + PADDING_X * 2;
+    const boxHeight = Math.max(18, editor.scrollHeight) + PADDING_Y * 2;
+    setTranslate(group, x - boxWidth / 2, y - boxHeight / 2);
+  });
   setActiveGroup(group);
   selectAllText(editor);
   editor.focus();
