@@ -42,12 +42,18 @@
           </div>
           <div id="annotationControls" class="annotation-controls hidden">
             <div class="tabs">
-              <button class="tab active tab-text" data-tab="text">Text</button>
+              <button class="tab active tab-notes" data-tab="notes">Note</button>
+              <button class="tab tab-text" data-tab="text">Text</button>
               <button class="tab tab-hints" data-tab="hints">Hints</button>
-              <button class="tab tab-notes" data-tab="notes">Notes</button>
             </div>
-            <div class="tab-panel active" data-panel="text">
-              <div class="hint">Double-click to create a text box. Double-click a box to edit it.</div>
+            <div class="tab-panel active" data-panel="notes">
+              <label class="field">
+                <div class="hint">Explain your annotation (optional).</div>
+                <textarea id="notesInput" rows="8" placeholder="&quot;This Redaction is interesting, because...&quot;"></textarea>
+              </label>
+            </div>
+            <div class="tab-panel" data-panel="text">
+              <div class="hint">Click to create a text box. Click a box to edit it.</div>
               <label class="field">
                 <span>Font</span>
                 <select id="fontSelect">
@@ -86,13 +92,6 @@
             </div>
             <div class="tab-panel" data-panel="hints">
               <div class="hint">Click twice to draw a red arrow. Select an arrow to edit handles.</div>
-            </div>
-            <div class="tab-panel" data-panel="notes">
-              <label class="field">
-                <span>Notes</span>
-                <div class="hint">Click to place a star. Select a star to edit its note.</div>
-                <textarea id="notesInput" rows="8" placeholder="Write notes for the selected star..."></textarea>
-              </label>
             </div>
             <div class="annotation-actions">
               <button id="commitAnnotationBtn" class="btn">Commit Annotation</button>

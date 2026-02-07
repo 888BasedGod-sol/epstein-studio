@@ -568,23 +568,9 @@ image {
   cursor: pointer;
 }
 
-.hint-star {
-  fill: #ffd84d;
-  stroke: #cfae2a;
-  stroke-width: 1.5;
-  cursor: pointer;
-}
-
 .hint-handle {
   fill: #ff2d2d;
   stroke: #7a1a1a;
-  stroke-width: 2;
-  cursor: pointer;
-}
-
-.hint-star-handle {
-  fill: #ffd84d;
-  stroke: #9f8620;
   stroke-width: 2;
   cursor: pointer;
 }
