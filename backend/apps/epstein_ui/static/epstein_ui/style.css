@@ -294,7 +294,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, transform 200ms ease;
   cursor: pointer;
 }
 
@@ -306,7 +306,7 @@ body {
 .annotation-note.hovered {
   background: #14181a;
   border-color: #3a4348;
-  order: -1;
+  transform: translateY(0);
 }
 
 .annotation-note-meta {
@@ -332,6 +332,14 @@ body {
   letter-spacing: 0.12em;
   color: var(--muted);
   margin: 6px 0 2px;
+}
+
+.annotation-selected-title.hidden {
+  display: none;
+}
+
+.annotation-selected-title {
+  margin: 0 0 6px;
 }
 
 .annotation-section-row {

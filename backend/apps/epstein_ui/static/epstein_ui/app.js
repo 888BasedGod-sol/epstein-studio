@@ -400,10 +400,28 @@ function ensureAnnotationAnchor(id) {
   anchor.addEventListener("mouseenter", () => {
     const card = annotationNotes?.querySelector(`.annotation-note[data-annotation="${id}"]`);
     if (card) card.classList.add("hovered");
+    if (annotationNotes) {
+      let header = annotationNotes.querySelector(".annotation-selected-title");
+      if (!header) {
+        header = document.createElement("div");
+        header.className = "annotation-section-title annotation-selected-title";
+        header.textContent = "Selected Annotation";
+      }
+      const card = annotationNotes.querySelector(`.annotation-note[data-annotation="${id}"]`);
+      if (card) {
+        annotationNotes.prepend(card);
+        annotationNotes.insertBefore(header, card);
+      } else {
+        annotationNotes.prepend(header);
+      }
+    }
   });
   anchor.addEventListener("mouseleave", () => {
     const card = annotationNotes?.querySelector(`.annotation-note[data-annotation="${id}"]`);
     if (card) card.classList.remove("hovered");
+    const header = annotationNotes?.querySelector(".annotation-selected-title");
+    if (header) header.remove();
+    renderNotesList();
   });
   return anchor;
 }
