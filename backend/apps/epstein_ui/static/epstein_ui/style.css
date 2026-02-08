@@ -1015,9 +1015,9 @@ image {
 }
 
 #minimapViewport {
-  fill: rgba(57, 255, 20, 0.15);
-  stroke: rgba(57, 255, 20, 0.9);
-  stroke-width: 2;
+  fill: rgba(90, 90, 90, 0.2);
+  stroke: rgb(57, 255, 20);
+  stroke-width: 4;
 }
 
 .minimap-hint {
