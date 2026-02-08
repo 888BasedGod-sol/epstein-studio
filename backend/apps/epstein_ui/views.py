@@ -13,7 +13,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q, Count
+from django.db.utils import OperationalError, ProgrammingError
 
 from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote
 
@@ -31,11 +31,17 @@ def _sync_pdf_index() -> list[PdfDocument]:
     """Sync the PdfDocument table with PDFs on disk."""
     pdf_paths = _list_pdfs_on_disk()
     if not pdf_paths:
-        PdfDocument.objects.all().delete()
+        try:
+            PdfDocument.objects.all().delete()
+        except (OperationalError, ProgrammingError):
+            pass
         return []
 
     seen_paths = {str(p) for p in pdf_paths}
-    existing = {doc.path: doc for doc in PdfDocument.objects.all()}
+    try:
+        existing = {doc.path: doc for doc in PdfDocument.objects.all()}
+    except (OperationalError, ProgrammingError):
+        return []
 
     to_create = []
     for path in pdf_paths:
@@ -114,10 +120,13 @@ def random_pdf(request):
     """Pick a random PDF and return rendered page metadata."""
     pdfs = _sync_pdf_index()
     if not pdfs:
-        return JsonResponse({"error": "No PDFs found"}, status=404)
-
-    pdf_doc = random.choice(pdfs)
-    pdf_path = Path(pdf_doc.path)
+        pdf_paths = _list_pdfs_on_disk()
+        if not pdf_paths:
+            return JsonResponse({"error": "No PDFs found"}, status=404)
+        pdf_path = random.choice(pdf_paths)
+    else:
+        pdf_doc = random.choice(pdfs)
+        pdf_path = Path(pdf_doc.path)
     try:
         png_paths = _render_pdf_pages(pdf_path)
     except Exception as exc:
@@ -146,12 +155,21 @@ def search_pdf(request):
     if not query:
         return JsonResponse({"error": "Missing query"}, status=400)
 
-    _sync_pdf_index()
-    match = PdfDocument.objects.filter(filename__icontains=query).first()
-    if not match:
-        return JsonResponse({"error": "No match"}, status=404)
+    pdf_path = None
+    try:
+        _sync_pdf_index()
+        match = PdfDocument.objects.filter(filename__icontains=query).first()
+        if match:
+            pdf_path = Path(match.path)
+    except (OperationalError, ProgrammingError):
+        pdf_path = None
 
-    pdf_path = Path(match.path)
+    if pdf_path is None:
+        pdfs = _list_pdfs_on_disk()
+        matches = [p for p in pdfs if query.lower() in p.name.lower()]
+        if not matches:
+            return JsonResponse({"error": "No match"}, status=404)
+        pdf_path = matches[0]
     try:
         png_paths = _render_pdf_pages(pdf_path)
     except Exception as exc:
@@ -177,11 +195,18 @@ def search_pdf(request):
 def search_suggestions(request):
     """Return filename suggestions for the search box."""
     query = (request.GET.get("q") or "").strip()
-    _sync_pdf_index()
-    qs = PdfDocument.objects.all()
-    if query:
-        qs = qs.filter(filename__icontains=query)
-    suggestions = list(qs.order_by("filename").values_list("filename", flat=True)[:12])
+    suggestions = []
+    try:
+        _sync_pdf_index()
+        qs = PdfDocument.objects.all()
+        if query:
+            qs = qs.filter(filename__icontains=query)
+        suggestions = list(qs.order_by("filename").values_list("filename", flat=True)[:12])
+    except (OperationalError, ProgrammingError):
+        pdfs = _list_pdfs_on_disk()
+        if query:
+            pdfs = [p for p in pdfs if query.lower() in p.name.lower()]
+        suggestions = [p.name for p in sorted(pdfs, key=lambda p: p.name)[:12]]
     return JsonResponse({"suggestions": suggestions})
 
 
@@ -210,7 +235,9 @@ def _annotation_to_dict(annotation: Annotation, request=None) -> dict:
     upvotes = sum(1 for v in votes if v.value == 1)
     downvotes = sum(1 for v in votes if v.value == -1)
     user_vote = 0
+    is_owner = False
     if request is not None and request.user.is_authenticated:
+        is_owner = request.user.id == annotation.user_id
         for vote in votes:
             if vote.user_id == request.user.id:
                 user_vote = vote.value
@@ -223,6 +250,7 @@ def _annotation_to_dict(annotation: Annotation, request=None) -> dict:
         "x": annotation.x,
         "y": annotation.y,
         "note": annotation.note or "",
+        "is_owner": is_owner,
         "upvotes": upvotes,
         "downvotes": downvotes,
         "user_vote": user_vote,

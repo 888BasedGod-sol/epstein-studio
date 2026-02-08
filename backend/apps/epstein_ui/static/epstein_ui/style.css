@@ -662,6 +662,11 @@ image {
   cursor: pointer;
 }
 
+.annotation-anchor.annotation-anchor-other {
+  fill: #ffd84d;
+  stroke: #2a2204;
+}
+
 .text-group:not(.active) .text-box,
 .text-group:not(.active) .resize-handle {
   display: none;
