@@ -1009,6 +1009,15 @@ function renderHeatmap() {
     translateY
   );
   heatmapCtx.drawImage(heatmapBase, 0, 0);
+  if (lastHoverPoint) {
+    const radiusSvg = 29 / Math.max(0.0001, scaleX);
+    heatmapCtx.save();
+    heatmapCtx.globalCompositeOperation = "destination-out";
+    heatmapCtx.beginPath();
+    heatmapCtx.arc(lastHoverPoint.x, lastHoverPoint.y, radiusSvg, 0, Math.PI * 2);
+    heatmapCtx.fill();
+    heatmapCtx.restore();
+  }
   heatmapCtx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
@@ -2459,6 +2468,7 @@ svg.addEventListener("mouseenter", () => {
 
 svg.addEventListener("mouseleave", () => {
   if (hoverCircle) hoverCircle.style.display = "none";
+  lastHoverPoint = null;
 });
 
 svg.addEventListener("mousemove", (evt) => {
@@ -2472,6 +2482,7 @@ svg.addEventListener("mousemove", (evt) => {
   const radius = 30 / Math.max(0.0001, pxPerSvg * view.scale);
   circle.setAttribute("r", radius.toFixed(3));
   circle.style.display = "";
+  renderHeatmap();
 });
 
 svg.addEventListener("wheel", () => {
