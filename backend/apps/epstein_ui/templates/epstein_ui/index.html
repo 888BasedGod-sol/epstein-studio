@@ -154,7 +154,20 @@
         <section class="canvas-wrap">
           <div class="canvas-header">
             <div>
-              <div class="file-title" id="fileTitle">No file loaded</div>
+              <div class="file-title-row">
+                <div class="file-title" id="fileTitle">No file loaded</div>
+                <div class="pdf-vote-frame">
+                  <button id="pdfVoteUp" class="pdf-vote-btn up" type="button">
+                    <img src="{% static 'epstein_ui/icons/thumbs-up.svg' %}" alt="" />
+                    <span>Promising</span>
+                  </button>
+                  <button id="pdfVoteDown" class="pdf-vote-btn down" type="button">
+                    <img src="{% static 'epstein_ui/icons/thumbs-down.svg' %}" alt="" />
+                    <span>Not Promising</span>
+                  </button>
+                  <span id="pdfVoteScore" class="pdf-vote-score">0</span>
+                </div>
+              </div>
             </div>
             <div class="header-actions">
               <div class="search-wrap">

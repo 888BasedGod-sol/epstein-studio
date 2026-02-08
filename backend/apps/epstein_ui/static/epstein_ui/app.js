@@ -14,6 +14,9 @@ const minimapPages = document.getElementById("minimapPages");
 const minimapHeatmap = document.getElementById("minimapHeatmap");
 const minimapViewport = document.getElementById("minimapViewport");
 const fileTitle = document.getElementById("fileTitle");
+const pdfVoteUp = document.getElementById("pdfVoteUp");
+const pdfVoteDown = document.getElementById("pdfVoteDown");
+const pdfVoteScore = document.getElementById("pdfVoteScore");
 const textLayer = document.getElementById("textLayer");
 const defs = svg.querySelector("defs");
 
@@ -111,6 +114,7 @@ let lastHoverPoint = null;
 let hoveredAnchorId = null;
 let hoverPreviewState = null;
 let hoverPreviewId = null;
+let currentPdfVotes = { upvotes: 0, downvotes: 0, user_vote: 0 };
 
 function formatTimestamp(value, { dateOnly = false } = {}) {
   if (!value) return "";
@@ -158,6 +162,9 @@ updateCreateAnnotationButton();
 function setFileTitleLoading(isLoading) {
   if (!fileTitle) return;
   fileTitle.textContent = isLoading ? "Loading..." : "No file loaded";
+  if (isLoading) {
+    updatePdfVoteUI({ upvotes: 0, downvotes: 0, user_vote: 0 }, true);
+  }
 }
 
 function showAnnotationControls() {
@@ -334,6 +341,36 @@ function updateAnnotationCardVote(ann) {
   if (downBtn) {
     downBtn.classList.toggle("active", ann.userVote === -1);
     downBtn.disabled = !isAuthenticated || !ann.server_id || ann.isOwner;
+  }
+}
+
+function updatePdfVoteUI(data, forceDisabled = false) {
+  if (!pdfVoteUp || !pdfVoteDown) return;
+  const userVote = data?.user_vote || 0;
+  currentPdfVotes = {
+    upvotes: data?.upvotes || 0,
+    downvotes: data?.downvotes || 0,
+    user_vote: userVote,
+  };
+  if (pdfVoteScore) {
+    pdfVoteScore.textContent = (currentPdfVotes.upvotes || 0) - (currentPdfVotes.downvotes || 0);
+  }
+  pdfVoteUp.classList.toggle("active", userVote === 1);
+  pdfVoteDown.classList.toggle("active", userVote === -1);
+  const disable = forceDisabled || !isAuthenticated || !currentPdfKey;
+  pdfVoteUp.disabled = disable;
+  pdfVoteDown.disabled = disable;
+}
+
+async function loadPdfVotes(pdfName) {
+  if (!pdfName) return;
+  try {
+    const response = await fetch(`/pdf-votes/?pdf=${encodeURIComponent(pdfName)}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    updatePdfVoteUI(data);
+  } catch (err) {
+    console.error(err);
   }
 }
 
@@ -2331,7 +2368,9 @@ function syncPages(pages, pdfName) {
       window.history.replaceState({}, "", `/${encodeURIComponent(slug)}`);
     }
   }
+  updatePdfVoteUI(currentPdfVotes);
   loadStateForPdf(currentPdfKey);
+  loadPdfVotes(currentPdfKey);
 }
 
 async function fetchRandomPdf() {
@@ -2926,6 +2965,42 @@ if (annotationViewDown) {
     ann.userVote = result.user_vote || 0;
     updateAnnotationViewVotes(ann);
     updateAnnotationCardVote(ann);
+  });
+}
+
+if (pdfVoteUp) {
+  pdfVoteUp.addEventListener("click", async () => {
+    if (!isAuthenticated || !currentPdfKey) return;
+    try {
+      const response = await fetch("/pdf-votes/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdf: currentPdfKey, value: 1 }),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      updatePdfVoteUI(data);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
+if (pdfVoteDown) {
+  pdfVoteDown.addEventListener("click", async () => {
+    if (!isAuthenticated || !currentPdfKey) return;
+    try {
+      const response = await fetch("/pdf-votes/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdf: currentPdfKey, value: -1 }),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      updatePdfVoteUI(data);
+    } catch (err) {
+      console.error(err);
+    }
   });
 }
 

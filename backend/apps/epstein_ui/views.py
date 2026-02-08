@@ -15,7 +15,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_exempt
 from django.db.utils import OperationalError, ProgrammingError
 
-from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote
+from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote, PdfVote
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -208,6 +208,70 @@ def search_suggestions(request):
             pdfs = [p for p in pdfs if query.lower() in p.name.lower()]
         suggestions = [p.name for p in sorted(pdfs, key=lambda p: p.name)[:12]]
     return JsonResponse({"suggestions": suggestions})
+
+
+@csrf_exempt
+def pdf_votes(request):
+    """List or record votes for a PDF file."""
+    if request.method == "GET":
+        pdf_name = (request.GET.get("pdf") or "").strip()
+        if not pdf_name:
+            return JsonResponse({"error": "Missing pdf"}, status=400)
+        try:
+            _sync_pdf_index()
+        except (OperationalError, ProgrammingError):
+            pass
+        pdf_doc = PdfDocument.objects.filter(filename=pdf_name).first()
+        if pdf_doc is None:
+            return JsonResponse({"error": "Unknown pdf"}, status=404)
+        upvotes = PdfVote.objects.filter(pdf=pdf_doc, value=1).count()
+        downvotes = PdfVote.objects.filter(pdf=pdf_doc, value=-1).count()
+        user_vote = 0
+        if request.user.is_authenticated:
+            try:
+                user_vote = PdfVote.objects.get(pdf=pdf_doc, user=request.user).value
+            except PdfVote.DoesNotExist:
+                user_vote = 0
+        return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Unsupported method"}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Auth required"}, status=403)
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    pdf_name = (payload.get("pdf") or "").strip()
+    value = payload.get("value")
+    if not pdf_name or value not in (-1, 1):
+        return JsonResponse({"error": "Invalid payload"}, status=400)
+    try:
+        _sync_pdf_index()
+    except (OperationalError, ProgrammingError):
+        pass
+    pdf_doc = PdfDocument.objects.filter(filename=pdf_name).first()
+    if pdf_doc is None:
+        return JsonResponse({"error": "Unknown pdf"}, status=404)
+    vote, created = PdfVote.objects.get_or_create(
+        pdf=pdf_doc,
+        user=request.user,
+        defaults={"value": value},
+    )
+    if not created:
+        if vote.value == value:
+            vote.delete()
+        else:
+            vote.value = value
+            vote.save(update_fields=["value"])
+    upvotes = PdfVote.objects.filter(pdf=pdf_doc, value=1).count()
+    downvotes = PdfVote.objects.filter(pdf=pdf_doc, value=-1).count()
+    user_vote = 0
+    try:
+        user_vote = PdfVote.objects.get(pdf=pdf_doc, user=request.user).value
+    except PdfVote.DoesNotExist:
+        user_vote = 0
+    return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})
 
 
 def register(request):
