@@ -1,3 +1,4 @@
+// --- DOM references ---
 const svg = document.getElementById("overlay");
 window.DEBUG_MODE = true;
 const DEBUG_PDF_NAME = "EFTA02731646.pdf";
@@ -37,6 +38,7 @@ const italicToggle = document.getElementById("italicToggle");
 const contextMenu = document.getElementById("contextMenu");
 const isAuthenticated = document.body.dataset.auth === "1";
 
+// --- Shared state (viewport, active elements, annotations) ---
 let dragState = null;
 let resizeState = null;
 let panState = null;
@@ -78,6 +80,7 @@ let suppressNextTextCreate = false;
 sizeRange.value = DEFAULT_TEXT_SIZE;
 sizeInput.value = DEFAULT_TEXT_SIZE;
 
+// Disable editing UI for anonymous viewers.
 if (!isAuthenticated) {
   document.body.classList.add("read-only");
   document.querySelectorAll(".panel input, .panel select, .panel textarea, .panel button").forEach((el) => {
@@ -103,6 +106,7 @@ function hideAnnotationPrompt() {
   annotationPrompt.classList.add("hidden");
 }
 
+// Enter annotation placement mode (preview dot follows cursor).
 function startAnnotationCreate() {
   annotationCreateMode = true;
   showAnnotationPrompt();
@@ -114,6 +118,7 @@ function startAnnotationCreate() {
   }
 }
 
+// Exit annotation placement mode.
 function stopAnnotationCreate() {
   annotationCreateMode = false;
   hideAnnotationPrompt();
@@ -131,6 +136,7 @@ function ensureAnnotationMode() {
   }
 }
 
+// Find all visual elements that belong to one annotation.
 function getAnnotationElements(id) {
   const textItems = Array.from(textLayer.querySelectorAll(".text-group")).filter(
     (group) => group.dataset.annotation === id
@@ -141,6 +147,7 @@ function getAnnotationElements(id) {
   return { textItems, hintItems };
 }
 
+// Hide/show annotation elements (anchors stay visible when collapsed).
 function setAnnotationElementsVisible(id, visible) {
   const { textItems, hintItems } = getAnnotationElements(id);
   textItems.forEach((group) => {
@@ -155,6 +162,7 @@ function setAnnotationElementsVisible(id, visible) {
   }
 }
 
+// Create or update the annotation anchor dot.
 function ensureAnnotationAnchor(id) {
   const data = annotations.get(id);
   if (!data) return null;
@@ -172,6 +180,7 @@ function ensureAnnotationAnchor(id) {
   return anchor;
 }
 
+// Drop active annotation and its elements, then persist.
 function discardActiveAnnotation() {
   if (!activeAnnotationId) return;
   const id = activeAnnotationId;
@@ -200,6 +209,7 @@ function discardActiveAnnotation() {
   renderHeatmap();
 }
 
+// Collapse active annotation into its anchor, then persist.
 function commitActiveAnnotation() {
   if (!activeAnnotationId) return;
   const id = activeAnnotationId;
@@ -245,6 +255,7 @@ function setViewportTransform() {
   updateHeatmapTransform();
 }
 
+// --- Heatmap: build in PDF coordinate space, then draw into viewport transform ---
 function ensureHeatmapCanvas() {
   if (!heatmapCanvas) return;
   if (!heatmapCtx) {
@@ -270,6 +281,7 @@ function updateHeatmapTransform() {
   renderHeatmap();
 }
 
+// Render a density map into an offscreen canvas in PDF coordinates.
 function rebuildHeatmapBase() {
   heatmapBase = null;
   const items = Array.from(annotations.values());
@@ -334,6 +346,7 @@ function rebuildHeatmapBase() {
   heatmapBase.getContext("2d").putImageData(img, 0, 0);
 }
 
+// Draw the base heatmap into the visible canvas using the current view transform.
 function renderHeatmap() {
   if (!heatmapCanvas) return;
   ensureHeatmapCanvas();

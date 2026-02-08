@@ -1,11 +1,10 @@
-from django.db import models
-
-# Create your models here.
+"""Database models for per-PDF annotation data."""
 from django.conf import settings
 from django.db import models
 
 
 class Annotation(models.Model):
+    """Top-level annotation anchor tied to a PDF and user."""
     pdf_key = models.CharField(max_length=255, db_index=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     client_id = models.CharField(max_length=64)
@@ -20,6 +19,7 @@ class Annotation(models.Model):
 
 
 class TextItem(models.Model):
+    """Placed text overlay belonging to an annotation."""
     annotation = models.ForeignKey(Annotation, on_delete=models.CASCADE, related_name="text_items")
     x = models.FloatField()
     y = models.FloatField()
@@ -35,6 +35,7 @@ class TextItem(models.Model):
 
 
 class ArrowItem(models.Model):
+    """Hint arrow belonging to an annotation."""
     annotation = models.ForeignKey(Annotation, on_delete=models.CASCADE, related_name="arrow_items")
     x1 = models.FloatField()
     y1 = models.FloatField()

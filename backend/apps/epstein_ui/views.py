@@ -20,11 +20,13 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 
 def _list_pdfs() -> list[Path]:
+    """Return all PDF paths under the shared data directory."""
     if not DATA_DIR.exists():
         return []
     return [p for p in DATA_DIR.rglob("*.pdf") if p.is_file()]
 
 def _get_pdf_pages(pdf_path: Path) -> int:
+    """Best-effort page count using pdfinfo (falls back to 1)."""
     pdfinfo = shutil.which("pdfinfo")
     if pdfinfo is None:
         return 1
@@ -48,6 +50,7 @@ def _get_pdf_pages(pdf_path: Path) -> int:
 
 
 def _render_pdf_pages(pdf_path: Path) -> list[Path]:
+    """Render PDF pages into cached PNGs under MEDIA_ROOT."""
     media_dir = Path(settings.MEDIA_ROOT)
     media_dir.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(str(pdf_path).encode("utf-8")).hexdigest()[:16]
@@ -77,10 +80,12 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
 
 
 def index(request):
+    """Render the single-page UI."""
     return render(request, "epstein_ui/index.html")
 
 
 def random_pdf(request):
+    """Pick a random PDF and return rendered page metadata."""
     pdfs = _list_pdfs()
     if not pdfs:
         return JsonResponse({"error": "No PDFs found"}, status=404)
@@ -109,6 +114,7 @@ def random_pdf(request):
 
 
 def search_pdf(request):
+    """Return rendered page metadata for the first filename match."""
     query = (request.GET.get("q") or "").strip()
     if not query:
         return JsonResponse({"error": "Missing query"}, status=400)
@@ -142,6 +148,7 @@ def search_pdf(request):
 
 
 def register(request):
+    """Simple username/password registration with auto-login."""
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -154,11 +161,13 @@ def register(request):
 
 
 def logout_view(request):
+    """Logout helper that redirects back to the index."""
     logout(request)
     return redirect("index")
 
 
 def _annotation_to_dict(annotation: Annotation) -> dict:
+    """Serialize Annotation and child items for the frontend."""
     return {
         "id": annotation.client_id,
         "pdf": annotation.pdf_key,
@@ -191,6 +200,7 @@ def _annotation_to_dict(annotation: Annotation) -> dict:
 
 @csrf_exempt
 def annotations_api(request):
+    """List or persist annotations for a PDF (auth required for writes)."""
     if request.method == "GET":
         pdf_key = (request.GET.get("pdf") or "").strip()
         if not pdf_key:
