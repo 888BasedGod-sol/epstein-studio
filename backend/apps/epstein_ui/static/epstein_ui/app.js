@@ -295,6 +295,7 @@ function renderNotesList() {
   items.forEach((ann) => {
     const wrapper = document.createElement("div");
     wrapper.className = "annotation-note";
+    wrapper.dataset.annotation = ann.id;
 
     const meta = document.createElement("div");
     meta.className = "annotation-note-meta";
@@ -353,6 +354,19 @@ function renderNotesList() {
     wrapper.appendChild(text);
     wrapper.appendChild(actions);
     annotationNotes.appendChild(wrapper);
+
+    wrapper.addEventListener("mouseenter", () => {
+      const anchor = annotationAnchors.get(ann.id);
+      if (anchor) {
+        anchor.setAttribute("r", "10");
+      }
+    });
+    wrapper.addEventListener("mouseleave", () => {
+      const anchor = annotationAnchors.get(ann.id);
+      if (anchor) {
+        anchor.setAttribute("r", "6");
+      }
+    });
   });
 }
 

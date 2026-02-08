@@ -131,6 +131,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.annotation-note:hover {
+  background: #14181a;
+  border-color: #3a4348;
 }
 
 .annotation-note-meta {
