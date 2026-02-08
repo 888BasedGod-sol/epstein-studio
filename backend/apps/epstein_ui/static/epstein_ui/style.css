@@ -87,7 +87,6 @@ body {
 
 .read-only .panel {
   opacity: 0.5;
-  pointer-events: none;
 }
 
 .hidden {

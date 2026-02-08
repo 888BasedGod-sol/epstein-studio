@@ -116,9 +116,11 @@ sizeInput.value = DEFAULT_TEXT_SIZE;
 // Disable editing UI for anonymous viewers.
 if (!isAuthenticated) {
   document.body.classList.add("read-only");
-  document.querySelectorAll(".panel input, .panel select, .panel textarea, .panel button").forEach((el) => {
+  document.querySelectorAll(".annotation-controls input, .annotation-controls select, .annotation-controls textarea, .annotation-controls button").forEach((el) => {
+    if (el.id === "annotationViewBack") return;
     el.disabled = true;
   });
+  if (createAnnotationBtn) createAnnotationBtn.disabled = true;
 }
 
 function showAnnotationControls() {
@@ -929,6 +931,12 @@ function updateTabStates() {
     if (notesPanel) notesPanel.classList.add("disabled");
     return;
   }
+  if (activeAnnotationViewOnly) {
+    if (textPanel) textPanel.classList.add("disabled");
+    if (hintsPanel) hintsPanel.classList.add("disabled");
+    if (notesPanel) notesPanel.classList.remove("disabled");
+    return;
+  }
   if (textPanel) {
     textPanel.classList.toggle("disabled", !activeGroup);
   }
@@ -1134,7 +1142,7 @@ function createTextBoxFromData(data) {
 }
 
 function onDragStart(evt) {
-  if (!isAuthenticated) return;
+  if (!isAuthenticated && !activeAnnotationViewOnly) return;
   if (!activeAnnotationId) return;
   const group = evt.target.closest(".text-group");
   if (!group) return;
@@ -1906,17 +1914,22 @@ notesInput.addEventListener("input", () => {
 });
 
 textLayer.addEventListener("pointerdown", (evt) => {
-  if (!isAuthenticated) return;
-    const group = evt.target.closest(".text-group");
-    if (group) {
+  const group = evt.target.closest(".text-group");
+  if (group) {
     if (group.dataset.annotation) {
       const annId = group.dataset.annotation;
       const ann = annId ? annotations.get(annId) : null;
-      if (ann && ann.isOwner === false) return;
+      if (ann && ann.isOwner === false) {
+        activateAnnotation(annId, { viewOnly: true });
+        return;
+      }
+      if (!isAuthenticated) return;
       activateAnnotation(annId, { viewOnly: false });
     }
-      setActiveGroup(group);
-    }
+    if (!isAuthenticated) return;
+    setActiveGroup(group);
+  }
+  if (!isAuthenticated) return;
   onDragStart(evt);
 });
 svg.addEventListener("click", (evt) => {
@@ -1937,7 +1950,6 @@ textLayer.addEventListener("contextmenu", (evt) => {
   openContextMenu(evt.clientX, evt.clientY, { type: "text", group });
 });
 hintLayer.addEventListener("pointerdown", (evt) => {
-  if (!isAuthenticated) return;
   if (evt.button !== 0) return;
   if (arrowStart) return;
   const anchor = evt.target.closest(".annotation-anchor");
@@ -1945,12 +1957,11 @@ hintLayer.addEventListener("pointerdown", (evt) => {
     const annId = anchor.dataset.annotation;
     if (annId) {
       const ann = annotations.get(annId);
-      if (ann && ann.isOwner === false) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        return;
+      if (!isAuthenticated || (ann && ann.isOwner === false)) {
+        activateAnnotation(annId, { viewOnly: true });
+      } else {
+        activateAnnotation(annId, { viewOnly: false });
       }
-      activateAnnotation(annId, { viewOnly: false });
     }
     evt.preventDefault();
     evt.stopPropagation();
@@ -1961,11 +1972,15 @@ hintLayer.addEventListener("pointerdown", (evt) => {
   if (group.dataset.annotation) {
     const annId = group.dataset.annotation;
     const ann = annId ? annotations.get(annId) : null;
-    if (ann && ann.isOwner === false) return;
+    if (!isAuthenticated || (ann && ann.isOwner === false)) {
+      activateAnnotation(annId, { viewOnly: true });
+      return;
+    }
     activeAnnotationId = annId;
     ensureAnnotationMode();
   }
   if (group.dataset.type === "arrow") {
+    if (!isAuthenticated) return;
     setActiveHint(group);
     if (evt.target.classList.contains("hint-handle")) {
       const handles = group.querySelectorAll(".hint-handle");
