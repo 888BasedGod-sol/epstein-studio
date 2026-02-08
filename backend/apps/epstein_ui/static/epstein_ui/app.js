@@ -1,6 +1,6 @@
 // --- DOM references ---
 const svg = document.getElementById("overlay");
-window.DEBUG_MODE = true;
+window.DEBUG_MODE = false;
 const DEBUG_PDF_NAME = "EFTA02731646.pdf";
 const viewport = document.getElementById("viewport");
 const pdfPages = document.getElementById("pdfPages");
@@ -2374,8 +2374,10 @@ function syncPages(pages, pdfName) {
 }
 
 async function fetchRandomPdf() {
-  randomBtn.disabled = true;
-  randomBtn.textContent = "Loading...";
+  if (randomBtn) {
+    randomBtn.disabled = true;
+    randomBtn.textContent = "Loading...";
+  }
   setFileTitleLoading(true);
   try {
     const response = await fetch("/random-pdf/");
@@ -2390,8 +2392,10 @@ async function fetchRandomPdf() {
   } catch (err) {
     console.error(err);
   } finally {
-    randomBtn.disabled = false;
-    randomBtn.textContent = "Random PDF";
+    if (randomBtn) {
+      randomBtn.disabled = false;
+      randomBtn.textContent = "Random PDF";
+    }
     if (!currentPdfKey) {
       setFileTitleLoading(false);
     }
@@ -2489,7 +2493,9 @@ italicToggle.addEventListener("click", () => {
     applyStylesToGroup(activeGroup);
   }
 });
-randomBtn.addEventListener("click", fetchRandomPdf);
+if (randomBtn) {
+  randomBtn.addEventListener("click", fetchRandomPdf);
+}
 searchBtn.addEventListener("click", searchPdf);
 searchInput.addEventListener("keydown", (evt) => {
   if (evt.key === "Enter") {

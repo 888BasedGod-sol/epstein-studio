@@ -273,6 +273,64 @@ body {
   flex-direction: column;
 }
 
+.browse-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  min-height: calc(100vh - 190px);
+}
+
+.browse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.browse-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  background: linear-gradient(160deg, var(--panel) 0%, var(--panel-strong) 100%);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  min-height: 200px;
+}
+
+.browse-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #2a3236;
+  background: #101416;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.browse-card:hover {
+  border-color: rgba(57, 255, 20, 0.55);
+  background: #0f1510;
+  color: #c8ffb8;
+}
+
+.browse-card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browse-actions {
+  display: flex;
+  justify-content: center;
+}
+
 .annotation-notes {
   display: flex;
   flex-direction: column;

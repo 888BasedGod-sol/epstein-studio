@@ -116,6 +116,11 @@ def index(request, pdf_slug=None):
     return render(request, "epstein_ui/index.html")
 
 
+def browse(request):
+    """Render the browse page shell."""
+    return render(request, "epstein_ui/browse.html")
+
+
 def random_pdf(request):
     """Pick a random PDF and return rendered page metadata."""
     pdfs = _sync_pdf_index()
@@ -208,6 +213,30 @@ def search_suggestions(request):
             pdfs = [p for p in pdfs if query.lower() in p.name.lower()]
         suggestions = [p.name for p in sorted(pdfs, key=lambda p: p.name)[:12]]
     return JsonResponse({"suggestions": suggestions})
+
+
+def browse_list(request):
+    """Return paginated PDF filenames for browsing."""
+    page = request.GET.get("page") or "1"
+    try:
+        page_num = max(1, int(page))
+    except ValueError:
+        page_num = 1
+    page_size = 50
+    try:
+        _sync_pdf_index()
+    except (OperationalError, ProgrammingError):
+        pass
+    qs = PdfDocument.objects.order_by("filename")
+    total = qs.count()
+    start = (page_num - 1) * page_size
+    end = start + page_size
+    items = list(qs.values_list("filename", flat=True)[start:end])
+    has_more = end < total
+    payload = [
+        {"filename": name, "slug": name.replace(".pdf", "")} for name in items
+    ]
+    return JsonResponse({"items": payload, "page": page_num, "has_more": has_more})
 
 
 @csrf_exempt
