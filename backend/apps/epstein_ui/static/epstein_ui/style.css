@@ -371,6 +371,11 @@ body {
   margin-left: auto;
 }
 
+.annotation-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 #annotationSortSelect {
   background: #0f1213;
   border: 1px solid #2a3236;

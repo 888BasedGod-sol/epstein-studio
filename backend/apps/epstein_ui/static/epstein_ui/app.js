@@ -30,6 +30,7 @@ const createAnnotationBtn = document.getElementById("createAnnotationBtn");
 const annotationPrompt = document.getElementById("annotationPrompt");
 const annotationControls = document.getElementById("annotationControls");
 const annotationNotes = document.getElementById("annotationNotes");
+const annotationStatus = document.getElementById("annotationStatus");
 const annotationSort = document.getElementById("annotationSort");
 const annotationSortSelect = document.getElementById("annotationSortSelect");
 const commitAnnotationBtn = document.getElementById("commitAnnotationBtn");
@@ -441,7 +442,7 @@ function updateAnnotationVisibility() {
     annotationNotes.classList.remove("hidden");
   }
   if (annotationSort) {
-    annotationSort.classList.remove("hidden");
+    annotationSort.classList.add("hidden");
   }
   annotations.forEach((_, id) => {
     setAnnotationElementsVisible(id, false);
@@ -700,10 +701,17 @@ function renderNotesList() {
   if (!annotationNotes) return;
   annotationNotes.innerHTML = "";
   const items = Array.from(annotations.values()).filter((ann) => (ann.note || "").trim().length > 0);
+  if (annotationStatus) {
+    annotationStatus.textContent = items.length ? "" : "No Annotations yet";
+    annotationStatus.classList.toggle("hidden", items.length > 0);
+  }
   if (!items.length) return;
 
   const mine = items.filter((ann) => ann.isOwner);
   const others = items.filter((ann) => !ann.isOwner);
+  if (annotationSort) {
+    annotationSort.classList.add("hidden");
+  }
 
   mine.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   const sortMode = annotationSortSelect?.value || "upvotes";
@@ -2169,6 +2177,10 @@ function loadStateForPdf(key) {
 
 async function loadAnnotationsForPdf(pdfName) {
   if (!pdfName) return;
+  if (annotationStatus) {
+    annotationStatus.textContent = "Annotations Loading...";
+    annotationStatus.classList.remove("hidden");
+  }
   try {
     const response = await fetch(`/annotations/?pdf=${encodeURIComponent(pdfName)}`);
     if (!response.ok) return;
@@ -2226,6 +2238,10 @@ async function loadAnnotationsForPdf(pdfName) {
     renderHeatmap();
   } catch (err) {
     console.error(err);
+    if (annotationStatus) {
+      annotationStatus.textContent = "No Annotations yet";
+      annotationStatus.classList.remove("hidden");
+    }
   }
 }
 
