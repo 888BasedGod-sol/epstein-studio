@@ -72,6 +72,7 @@ const annotations = new Map();
 let annotationPreview = null;
 const annotationAnchors = new Map();
 let heatmapCtx = null;
+let heatmapBase = null;
 let suppressNextTextCreate = false;
 
 sizeRange.value = DEFAULT_TEXT_SIZE;
@@ -195,6 +196,7 @@ function discardActiveAnnotation() {
   activeAnnotationId = null;
   ensureAnnotationMode();
   saveAnnotationsForPdf();
+  rebuildHeatmapBase();
   renderHeatmap();
 }
 
@@ -206,6 +208,7 @@ function commitActiveAnnotation() {
   activeAnnotationId = null;
   ensureAnnotationMode();
   saveAnnotationsForPdf();
+  rebuildHeatmapBase();
   renderHeatmap();
 }
 
@@ -247,29 +250,34 @@ function ensureHeatmapCanvas() {
   if (!heatmapCtx) {
     heatmapCtx = heatmapCanvas.getContext("2d");
   }
-  if (heatmapCanvas.width !== canvasSize.width || heatmapCanvas.height !== canvasSize.height) {
-    heatmapCanvas.width = canvasSize.width;
-    heatmapCanvas.height = canvasSize.height;
+  const svgRect = svg.getBoundingClientRect();
+  const parentRect = heatmapCanvas.parentElement?.getBoundingClientRect();
+  if (!parentRect) return;
+  const dpr = window.devicePixelRatio || 1;
+  heatmapCanvas.style.left = `${svgRect.left - parentRect.left}px`;
+  heatmapCanvas.style.top = `${svgRect.top - parentRect.top}px`;
+  heatmapCanvas.style.width = `${svgRect.width}px`;
+  heatmapCanvas.style.height = `${svgRect.height}px`;
+  const targetW = Math.max(1, Math.round(svgRect.width * dpr));
+  const targetH = Math.max(1, Math.round(svgRect.height * dpr));
+  if (heatmapCanvas.width !== targetW || heatmapCanvas.height !== targetH) {
+    heatmapCanvas.width = targetW;
+    heatmapCanvas.height = targetH;
   }
 }
 
 function updateHeatmapTransform() {
-  if (!heatmapCanvas) return;
-  heatmapCanvas.style.transformOrigin = "0 0";
-  heatmapCanvas.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  renderHeatmap();
 }
 
-function renderHeatmap() {
-  if (!heatmapCanvas) return;
-  ensureHeatmapCanvas();
-  if (!heatmapCtx) return;
-  heatmapCtx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
+function rebuildHeatmapBase() {
+  heatmapBase = null;
   const items = Array.from(annotations.values());
   if (!items.length) return;
 
   const off = document.createElement("canvas");
-  off.width = heatmapCanvas.width;
-  off.height = heatmapCanvas.height;
+  off.width = canvasSize.width;
+  off.height = canvasSize.height;
   const offCtx = off.getContext("2d");
   offCtx.clearRect(0, 0, off.width, off.height);
   offCtx.filter = "blur(18px)";
@@ -320,7 +328,32 @@ function renderHeatmap() {
     data[i + 2] = b;
     data[i + 3] = Math.round(255 * (0.5 * t));
   }
-  heatmapCtx.putImageData(img, 0, 0);
+  heatmapBase = document.createElement("canvas");
+  heatmapBase.width = off.width;
+  heatmapBase.height = off.height;
+  heatmapBase.getContext("2d").putImageData(img, 0, 0);
+}
+
+function renderHeatmap() {
+  if (!heatmapCanvas) return;
+  ensureHeatmapCanvas();
+  if (!heatmapCtx) return;
+  heatmapCtx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
+  if (!heatmapBase) return;
+  const scaleX = (heatmapCanvas.width / VIEW_W) * view.scale;
+  const scaleY = (heatmapCanvas.height / VIEW_H) * view.scale;
+  const translateX = (heatmapCanvas.width / VIEW_W) * view.x;
+  const translateY = (heatmapCanvas.height / VIEW_H) * view.y;
+  heatmapCtx.setTransform(
+    scaleX,
+    0,
+    0,
+    scaleY,
+    translateX,
+    translateY
+  );
+  heatmapCtx.drawImage(heatmapBase, 0, 0);
+  heatmapCtx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 function clampViewX() {
@@ -1049,6 +1082,7 @@ function clearOverlays() {
   if (heatmapCtx) {
     heatmapCtx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
   }
+  heatmapBase = null;
   annotationAnchors.forEach((anchor) => anchor.remove());
   annotationAnchors.clear();
   activeGroup = null;
@@ -1127,6 +1161,7 @@ function loadStateForPdf(key) {
   });
   activeAnnotationId = null;
   ensureAnnotationMode();
+  rebuildHeatmapBase();
   renderHeatmap();
 }
 
@@ -1175,6 +1210,7 @@ async function loadAnnotationsForPdf(pdfName) {
     });
     pdfState.set(pdfName, { annotations: annotationsPayload, textItems, arrows });
     loadStateForPdf(pdfName);
+    rebuildHeatmapBase();
     renderHeatmap();
   } catch (err) {
     console.error(err);
