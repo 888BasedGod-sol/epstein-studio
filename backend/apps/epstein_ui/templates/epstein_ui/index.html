@@ -42,12 +42,15 @@
           </div>
           <div id="annotationNotes" class="annotation-notes"></div>
           <div id="annotationControls" class="annotation-controls hidden">
-            <div class="tabs">
+            <div class="tabs" id="annotationTabs">
               <button class="tab active tab-notes" data-tab="notes">Note</button>
               <button class="tab tab-text" data-tab="text">Text</button>
               <button class="tab tab-hints" data-tab="hints">Hints</button>
             </div>
             <div class="tab-panel active" data-panel="notes">
+              <div id="annotationViewTitle" class="annotation-view-title hidden"></div>
+              <div id="annotationViewNote" class="annotation-view-note hidden"></div>
+              <button id="annotationViewBack" class="btn btn-outline hidden" type="button">Back to Annotations</button>
               <label class="field">
                 <div class="hint">Explain your annotation (optional).</div>
                 <textarea id="notesInput" rows="8" placeholder="&quot;This Redaction is interesting, because...&quot;"></textarea>

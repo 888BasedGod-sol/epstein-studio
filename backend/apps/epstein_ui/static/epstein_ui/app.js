@@ -39,6 +39,10 @@ const boldToggle = document.getElementById("boldToggle");
 const italicToggle = document.getElementById("italicToggle");
 const contextMenu = document.getElementById("contextMenu");
 const colorSwatch = document.getElementById("colorSwatch");
+const annotationTabs = document.getElementById("annotationTabs");
+const annotationViewTitle = document.getElementById("annotationViewTitle");
+const annotationViewNote = document.getElementById("annotationViewNote");
+const annotationViewBack = document.getElementById("annotationViewBack");
 const isAuthenticated = document.body.dataset.auth === "1";
 
 // --- Shared state (viewport, active elements, annotations) ---
@@ -72,6 +76,7 @@ let autoPanActive = false;
 let contextTarget = null;
 let annotationCreateMode = false;
 let activeAnnotationId = null;
+let activeAnnotationViewOnly = false;
 let annotationCounter = 0;
 const annotations = new Map();
 let annotationPreview = null;
@@ -139,7 +144,91 @@ function ensureAnnotationMode() {
     showAnnotationControls();
     ensureAnnotationAnchor(activeAnnotationId);
   }
+  updateAnnotationPanelMode();
   updateAnnotationVisibility();
+}
+
+function updateAnnotationPanelMode() {
+  if (!annotationControls) return;
+  const tabsList = Array.from(annotationControls.querySelectorAll(".tab"));
+  if (!activeAnnotationId) {
+    activeAnnotationViewOnly = false;
+    if (annotationTabs) annotationTabs.classList.remove("hidden");
+    if (annotationViewTitle) annotationViewTitle.classList.add("hidden");
+    if (annotationViewNote) annotationViewNote.classList.add("hidden");
+    if (annotationViewBack) annotationViewBack.classList.add("hidden");
+    tabsList.forEach((tab) => {
+      tab.disabled = false;
+    });
+    if (notesInput) {
+      notesInput.readOnly = false;
+      notesInput.closest(".field")?.classList.remove("hidden");
+    }
+    if (notesInput) notesInput.classList.remove("hidden");
+    commitAnnotationBtn?.classList.remove("hidden");
+    discardAnnotationBtn?.classList.remove("hidden");
+    return;
+  }
+  if (activeAnnotationViewOnly) {
+    if (annotationTabs) annotationTabs.classList.add("hidden");
+    if (annotationViewTitle) annotationViewTitle.classList.remove("hidden");
+    if (annotationViewNote) annotationViewNote.classList.remove("hidden");
+    if (annotationViewBack) annotationViewBack.classList.remove("hidden");
+    if (notesInput) notesInput.closest(".field")?.classList.add("hidden");
+    if (annotationViewTitle) {
+      const ann = annotations.get(activeAnnotationId);
+      const name = ann?.user || "Unknown";
+      annotationViewTitle.textContent = `${name}:`;
+    }
+    if (annotationViewNote) {
+      const ann = annotations.get(activeAnnotationId);
+      annotationViewNote.textContent = ann?.note || "";
+    }
+    tabsList.forEach((tab) => {
+      tab.disabled = tab.dataset.tab !== "notes";
+    });
+    if (notesInput) notesInput.readOnly = true;
+    commitAnnotationBtn?.classList.add("hidden");
+    discardAnnotationBtn?.classList.add("hidden");
+    setActiveTab("notes");
+  } else {
+    if (annotationTabs) annotationTabs.classList.remove("hidden");
+    if (annotationViewTitle) annotationViewTitle.classList.add("hidden");
+    if (annotationViewNote) annotationViewNote.classList.add("hidden");
+    if (annotationViewBack) annotationViewBack.classList.add("hidden");
+    if (notesInput) notesInput.classList.remove("hidden");
+    tabsList.forEach((tab) => {
+      tab.disabled = false;
+    });
+    if (notesInput) {
+      notesInput.readOnly = false;
+      notesInput.closest(".field")?.classList.remove("hidden");
+    }
+    commitAnnotationBtn?.classList.remove("hidden");
+    discardAnnotationBtn?.classList.remove("hidden");
+  }
+}
+
+function activateAnnotation(id, { viewOnly = false } = {}) {
+  if (!id) return;
+  activeAnnotationId = id;
+  activeAnnotationViewOnly = viewOnly;
+  const ann = annotations.get(id);
+  if (notesInput && ann) {
+    notesInput.value = ann.note || "";
+  }
+  if (annotationViewNote && ann) {
+    annotationViewNote.textContent = ann.note || "";
+  }
+  ensureAnnotationMode();
+  setAnnotationElementsVisible(id, true);
+  setActiveTab("notes");
+}
+
+function clearActiveAnnotation() {
+  activeAnnotationId = null;
+  activeAnnotationViewOnly = false;
+  ensureAnnotationMode();
 }
 
 function updateAnnotationVisibility() {
@@ -254,12 +343,20 @@ function removeAnnotationById(id, { persist = true } = {}) {
 
 function discardActiveAnnotation() {
   if (!activeAnnotationId) return;
+  if (activeAnnotationViewOnly) {
+    clearActiveAnnotation();
+    return;
+  }
   removeAnnotationById(activeAnnotationId);
 }
 
 // Collapse active annotation into its anchor, then persist.
 function commitActiveAnnotation() {
   if (!activeAnnotationId) return;
+  if (activeAnnotationViewOnly) {
+    clearActiveAnnotation();
+    return;
+  }
   const id = activeAnnotationId;
   const { textItems, hintItems } = getAnnotationElements(id);
   const note = (annotations.get(id)?.note || "").trim();
@@ -366,6 +463,14 @@ function renderNotesList() {
       if (anchor) {
         anchor.setAttribute("r", "6");
       }
+    });
+    wrapper.addEventListener("click", () => {
+      if (ann.isOwner) return;
+      if (activeAnnotationId === ann.id && activeAnnotationViewOnly) {
+        clearActiveAnnotation();
+        return;
+      }
+      activateAnnotation(ann.id, { viewOnly: true });
     });
   });
 }
@@ -1708,13 +1813,12 @@ textLayer.addEventListener("pointerdown", (evt) => {
   if (!isAuthenticated) return;
     const group = evt.target.closest(".text-group");
     if (group) {
-      if (group.dataset.annotation) {
-        const annId = group.dataset.annotation;
-        const ann = annId ? annotations.get(annId) : null;
-        if (ann && ann.isOwner === false) return;
-        activeAnnotationId = annId;
-        ensureAnnotationMode();
-      }
+    if (group.dataset.annotation) {
+      const annId = group.dataset.annotation;
+      const ann = annId ? annotations.get(annId) : null;
+      if (ann && ann.isOwner === false) return;
+      activateAnnotation(annId, { viewOnly: false });
+    }
       setActiveGroup(group);
     }
   onDragStart(evt);
@@ -1750,10 +1854,7 @@ hintLayer.addEventListener("pointerdown", (evt) => {
         evt.stopPropagation();
         return;
       }
-      activeAnnotationId = annId;
-      ensureAnnotationMode();
-      setAnnotationElementsVisible(annId, true);
-      setActiveTab("notes");
+      activateAnnotation(annId, { viewOnly: false });
     }
     evt.preventDefault();
     evt.stopPropagation();
@@ -1815,10 +1916,10 @@ svg.addEventListener("pointerdown", (evt) => {
     const point = svgPointInViewport(evt);
     annotationCounter += 1;
     activeAnnotationId = `ann_${Date.now()}_${annotationCounter}`;
+    activeAnnotationViewOnly = false;
     annotations.set(activeAnnotationId, { id: activeAnnotationId, x: point.x, y: point.y, isOwner: true });
     stopAnnotationCreate();
-    ensureAnnotationMode();
-    setActiveTab("notes");
+    activateAnnotation(activeAnnotationId, { viewOnly: false });
     evt.preventDefault();
     return;
   }
@@ -1982,6 +2083,10 @@ window.addEventListener("pointerdown", (evt) => {
   if (evt.target.closest(".context-menu")) return;
   if (evt.target.closest(".text-editor")) return;
   if (evt.target.closest(".panel")) return;
+  if (activeAnnotationViewOnly) {
+    clearActiveAnnotation();
+    return;
+  }
   if (!evt.target.closest(".text-group")) {
     if (activeGroup) {
       deactivateActiveGroup();
@@ -2008,6 +2113,12 @@ discardAnnotationBtn.addEventListener("click", () => {
   if (!isAuthenticated) return;
   discardActiveAnnotation();
 });
+
+if (annotationViewBack) {
+  annotationViewBack.addEventListener("click", () => {
+    clearActiveAnnotation();
+  });
+}
 
 setActiveTab("notes");
 setViewportTransform();

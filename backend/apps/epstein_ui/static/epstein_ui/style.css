@@ -108,6 +108,28 @@ body {
   justify-content: center;
 }
 
+.annotation-view-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.annotation-view-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: #171c1f;
+  border: 1px solid #2a3236;
+  border-radius: 10px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+#annotationViewBack {
+  margin-top: 10px;
+}
+
 .annotation-panel {
   display: flex;
   flex-direction: column;
@@ -132,6 +154,7 @@ body {
   flex-direction: column;
   gap: 8px;
   transition: background 160ms ease, border-color 160ms ease;
+  cursor: pointer;
 }
 
 .annotation-note:hover {
