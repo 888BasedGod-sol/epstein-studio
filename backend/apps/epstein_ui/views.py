@@ -15,7 +15,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_exempt
 from django.db.utils import OperationalError, ProgrammingError
 
-from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote
+from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -306,27 +306,41 @@ def annotations_api(request):
         if not pdf_key:
             return JsonResponse({"error": "Missing pdf"}, status=400)
 
-        seen_ids = set()
+        seen_hashes = set()
+        seen_client_ids = set()
         for ann in annotations_payload:
             client_id = str(ann.get("id") or "").strip()
             if not client_id:
                 continue
-            seen_ids.add(client_id)
-            annotation_obj, created = Annotation.objects.update_or_create(
-                pdf_key=pdf_key,
-                user=request.user,
-                client_id=client_id,
-                defaults={
-                    "x": float(ann.get("x", 0)),
-                    "y": float(ann.get("y", 0)),
-                    "note": ann.get("note") or "",
-                },
-            )
-            if created:
-                ann_hash = ann.get("hash")
-                if ann_hash:
-                    annotation_obj.hash = ann_hash
-                    annotation_obj.save(update_fields=["hash"])
+            ann_hash = ann.get("hash")
+            if ann_hash:
+                seen_hashes.add(ann_hash)
+                existing = Annotation.objects.filter(hash=ann_hash).first()
+                if existing and existing.user_id != request.user.id:
+                    continue
+                annotation_obj, _ = Annotation.objects.update_or_create(
+                    hash=ann_hash,
+                    defaults={
+                        "pdf_key": pdf_key,
+                        "user": request.user,
+                        "client_id": client_id,
+                        "x": float(ann.get("x", 0)),
+                        "y": float(ann.get("y", 0)),
+                        "note": ann.get("note") or "",
+                    },
+                )
+            else:
+                seen_client_ids.add(client_id)
+                annotation_obj, _ = Annotation.objects.update_or_create(
+                    pdf_key=pdf_key,
+                    user=request.user,
+                    client_id=client_id,
+                    defaults={
+                        "x": float(ann.get("x", 0)),
+                        "y": float(ann.get("y", 0)),
+                        "note": ann.get("note") or "",
+                    },
+                )
             TextItem.objects.filter(annotation=annotation_obj).delete()
             ArrowItem.objects.filter(annotation=annotation_obj).delete()
 
@@ -354,7 +368,12 @@ def annotations_api(request):
                     y2=float(arrow.get("y2", 0)),
                 )
 
-        Annotation.objects.filter(pdf_key=pdf_key, user=request.user).exclude(client_id__in=seen_ids).delete()
+        delete_qs = Annotation.objects.filter(pdf_key=pdf_key, user=request.user)
+        if seen_hashes:
+            delete_qs = delete_qs.exclude(hash__in=seen_hashes)
+        if seen_client_ids:
+            delete_qs = delete_qs.exclude(client_id__in=seen_client_ids, hash__isnull=True)
+        delete_qs.delete()
         return JsonResponse({"ok": True})
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -397,5 +416,112 @@ def annotation_votes(request):
     try:
         user_vote = AnnotationVote.objects.get(annotation=annotation, user=request.user).value
     except AnnotationVote.DoesNotExist:
+        user_vote = 0
+    return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})
+
+
+def _comment_to_dict(comment, request=None):
+    votes = list(comment.votes.all())
+    upvotes = sum(1 for v in votes if v.value == 1)
+    downvotes = sum(1 for v in votes if v.value == -1)
+    user_vote = 0
+    if request is not None and request.user.is_authenticated:
+        for vote in votes:
+            if vote.user_id == request.user.id:
+                user_vote = vote.value
+                break
+    return {
+        "id": comment.id,
+        "annotation_id": comment.annotation_id,
+        "parent_id": comment.parent_id,
+        "user": comment.user.username,
+        "body": comment.body,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+        "upvotes": upvotes,
+        "downvotes": downvotes,
+        "user_vote": user_vote,
+    }
+
+
+@csrf_exempt
+def annotation_comments(request):
+    if request.method == "GET":
+        annotation_id = request.GET.get("annotation_id")
+        if not annotation_id:
+            return JsonResponse({"error": "Missing annotation_id"}, status=400)
+        comments = (
+            AnnotationComment.objects.filter(annotation_id=annotation_id)
+            .select_related("user")
+            .prefetch_related("votes")
+            .order_by("created_at")
+        )
+        payload = [_comment_to_dict(c, request=request) for c in comments]
+        return JsonResponse({"comments": payload})
+
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Login required"}, status=401)
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        annotation_id = payload.get("annotation_id")
+        body = (payload.get("body") or "").strip()
+        parent_id = payload.get("parent_id")
+        if not annotation_id or not body:
+            return JsonResponse({"error": "Missing fields"}, status=400)
+        try:
+            annotation = Annotation.objects.get(id=annotation_id)
+        except Annotation.DoesNotExist:
+            return JsonResponse({"error": "Not found"}, status=404)
+        parent = None
+        if parent_id:
+            try:
+                parent = AnnotationComment.objects.get(id=parent_id, annotation=annotation)
+            except AnnotationComment.DoesNotExist:
+                return JsonResponse({"error": "Invalid parent"}, status=400)
+        comment = AnnotationComment.objects.create(annotation=annotation, user=request.user, parent=parent, body=body)
+        return JsonResponse({"comment": _comment_to_dict(comment, request=request)})
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def comment_votes(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Login required"}, status=401)
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    comment_id = payload.get("comment_id")
+    value = payload.get("value")
+    if comment_id is None or value not in (-1, 1):
+        return JsonResponse({"error": "Invalid payload"}, status=400)
+    try:
+        comment = AnnotationComment.objects.get(id=comment_id)
+    except AnnotationComment.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+
+    vote, created = CommentVote.objects.get_or_create(
+        comment=comment,
+        user=request.user,
+        defaults={"value": value},
+    )
+    if not created:
+        if vote.value == value:
+            vote.delete()
+        else:
+            vote.value = value
+            vote.save(update_fields=["value"])
+
+    upvotes = CommentVote.objects.filter(comment=comment, value=1).count()
+    downvotes = CommentVote.objects.filter(comment=comment, value=-1).count()
+    user_vote = 0
+    try:
+        user_vote = CommentVote.objects.get(comment=comment, user=request.user).value
+    except CommentVote.DoesNotExist:
         user_vote = 0
     return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})

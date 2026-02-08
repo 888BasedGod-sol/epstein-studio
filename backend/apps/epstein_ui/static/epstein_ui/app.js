@@ -46,6 +46,12 @@ const annotationViewTitle = document.getElementById("annotationViewTitle");
 const annotationViewHash = document.getElementById("annotationViewHash");
 const annotationViewNote = document.getElementById("annotationViewNote");
 const annotationViewBack = document.getElementById("annotationViewBack");
+const discussionPanel = document.getElementById("discussionPanel");
+const discussionList = document.getElementById("discussionList");
+const discussionForm = document.getElementById("discussionForm");
+const discussionInput = document.getElementById("discussionInput");
+const discussionSubmit = document.getElementById("discussionSubmit");
+const discussionLoginHint = document.getElementById("discussionLoginHint");
 const isAuthenticated = document.body.dataset.auth === "1";
 
 // --- Shared state (viewport, active elements, annotations) ---
@@ -88,6 +94,7 @@ let heatmapCtx = null;
 let heatmapBase = null;
 let suppressNextTextCreate = false;
 let suggestionTimer = null;
+let commentCache = new Map();
 
 function formatTimestamp(value, { dateOnly = false } = {}) {
   if (!value) return "";
@@ -192,6 +199,7 @@ function updateAnnotationPanelMode() {
     if (annotationViewHash) annotationViewHash.classList.add("hidden");
     if (annotationViewNote) annotationViewNote.classList.add("hidden");
     if (annotationViewBack) annotationViewBack.classList.add("hidden");
+    if (discussionPanel) discussionPanel.classList.add("hidden");
     tabsList.forEach((tab) => {
       tab.disabled = false;
     });
@@ -210,6 +218,7 @@ function updateAnnotationPanelMode() {
     if (annotationViewHash) annotationViewHash.classList.remove("hidden");
     if (annotationViewNote) annotationViewNote.classList.remove("hidden");
     if (annotationViewBack) annotationViewBack.classList.remove("hidden");
+    if (discussionPanel) discussionPanel.classList.remove("hidden");
     if (notesInput) notesInput.closest(".field")?.classList.add("hidden");
     if (annotationViewTitle) {
       const ann = annotations.get(activeAnnotationId);
@@ -242,6 +251,7 @@ function updateAnnotationPanelMode() {
     }
     if (annotationViewNote) annotationViewNote.classList.add("hidden");
     if (annotationViewBack) annotationViewBack.classList.add("hidden");
+    if (discussionPanel) discussionPanel.classList.remove("hidden");
     if (notesInput) notesInput.classList.remove("hidden");
     tabsList.forEach((tab) => {
       tab.disabled = false;
@@ -272,11 +282,13 @@ function activateAnnotation(id, { viewOnly = false } = {}) {
   ensureAnnotationMode();
   setAnnotationElementsVisible(id, true);
   setActiveTab("notes");
+  loadDiscussionForAnnotation(ann?.server_id);
 }
 
 function clearActiveAnnotation() {
   activeAnnotationId = null;
   activeAnnotationViewOnly = false;
+  if (discussionList) discussionList.innerHTML = "";
   ensureAnnotationMode();
 }
 
@@ -435,14 +447,17 @@ function ensureLegacyAnnotation() {
   if (activeAnnotationId) return activeAnnotationId;
   annotationCounter += 1;
   activeAnnotationId = `ann_legacy_${annotationCounter}`;
-  annotations.set(activeAnnotationId, {
-    id: activeAnnotationId,
+  const hash = generateHash();
+  annotations.set(hash, {
+    id: hash,
+    clientId: hash,
     x: 0,
     y: 0,
     isOwner: true,
-    hash: generateHash(),
+    hash,
     createdAt: new Date().toISOString(),
   });
+  activeAnnotationId = hash;
   return activeAnnotationId;
 }
 
@@ -593,6 +608,172 @@ function renderNotesList() {
 
   renderSection("Your annotations", mine, mine.length > 0, false);
   renderSection("Other annotations", others, mine.length > 0, true);
+}
+
+function renderDiscussion(annotationId, comments) {
+  if (!discussionList) return;
+  discussionList.innerHTML = "";
+  if (!annotationId) return;
+  const byParent = new Map();
+  comments.forEach((c) => {
+    const key = c.parent_id || "root";
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(c);
+  });
+  const renderNode = (comment, depth) => {
+    const item = document.createElement("div");
+    item.className = "comment";
+    if (depth > 0) {
+      item.style.marginLeft = `${Math.min(depth, 6) * 18}px`;
+    }
+    const meta = document.createElement("div");
+    meta.className = "comment-meta";
+    const stamp = formatTimestamp(comment.created_at);
+    meta.textContent = stamp ? `${comment.user} • ${stamp}` : comment.user;
+    const body = document.createElement("div");
+    body.className = "comment-body";
+    body.textContent = comment.body;
+
+    const actions = document.createElement("div");
+    actions.className = "comment-actions";
+    const upBtn = document.createElement("button");
+    upBtn.className = "vote-btn up";
+    upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+    if (comment.user_vote === 1) upBtn.classList.add("active");
+    upBtn.disabled = !isAuthenticated;
+    upBtn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      const result = await sendCommentVote(comment.id, 1);
+      if (!result) return;
+      comment.upvotes = result.upvotes;
+      comment.downvotes = result.downvotes;
+      comment.user_vote = result.user_vote || 0;
+      renderDiscussion(annotationId, comments);
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "vote-btn down";
+    downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+    if (comment.user_vote === -1) downBtn.classList.add("active");
+    downBtn.disabled = !isAuthenticated;
+    downBtn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      const result = await sendCommentVote(comment.id, -1);
+      if (!result) return;
+      comment.upvotes = result.upvotes;
+      comment.downvotes = result.downvotes;
+      comment.user_vote = result.user_vote || 0;
+      renderDiscussion(annotationId, comments);
+    });
+
+    const score = document.createElement("span");
+    score.className = "vote-score";
+    score.textContent = (comment.upvotes || 0) - (comment.downvotes || 0);
+
+    const replyBtn = document.createElement("span");
+    replyBtn.className = "comment-reply";
+    replyBtn.textContent = "Reply";
+    replyBtn.addEventListener("click", () => {
+      if (!isAuthenticated) return;
+      const existing = item.querySelector(".comment-reply-form");
+      if (existing) {
+        existing.remove();
+        return;
+      }
+      const form = document.createElement("div");
+      form.className = "comment-reply-form discussion-form";
+      const input = document.createElement("textarea");
+      input.rows = 2;
+      input.placeholder = "Write a reply...";
+      const btn = document.createElement("button");
+      btn.className = "btn btn-secondary";
+      btn.textContent = "Reply";
+      btn.addEventListener("click", async () => {
+        const text = input.value.trim();
+        if (!text) return;
+        const result = await sendComment(annotationId, text, comment.id);
+        if (!result) return;
+        comments.push(result);
+        renderDiscussion(annotationId, comments);
+      });
+      form.appendChild(input);
+      form.appendChild(btn);
+      item.appendChild(form);
+    });
+
+    actions.appendChild(upBtn);
+    actions.appendChild(downBtn);
+    actions.appendChild(score);
+    actions.appendChild(replyBtn);
+    item.appendChild(meta);
+    item.appendChild(body);
+    item.appendChild(actions);
+    discussionList.appendChild(item);
+
+    const children = byParent.get(comment.id) || [];
+    children.forEach((child) => renderNode(child, depth + 1));
+  };
+  const roots = byParent.get("root") || [];
+  roots.forEach((comment) => renderNode(comment, 0));
+}
+
+async function loadDiscussionForAnnotation(annotationId) {
+  if (!discussionPanel) return;
+  if (!annotationId) {
+    discussionPanel.classList.add("hidden");
+    return;
+  }
+  discussionPanel.classList.remove("hidden");
+  if (discussionLoginHint) {
+    discussionLoginHint.classList.toggle("hidden", isAuthenticated);
+  }
+  if (discussionForm) {
+    discussionForm.classList.toggle("hidden", !isAuthenticated);
+  }
+  if (commentCache.has(annotationId)) {
+    renderDiscussion(annotationId, commentCache.get(annotationId));
+  }
+  try {
+    const response = await fetch(`/annotation-comments/?annotation_id=${annotationId}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const comments = data.comments || [];
+    commentCache.set(annotationId, comments);
+    renderDiscussion(annotationId, comments);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function sendComment(annotationId, body, parentId = null) {
+  try {
+    const response = await fetch("/annotation-comments/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ annotation_id: annotationId, body, parent_id: parentId }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.comment || null;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+async function sendCommentVote(commentId, value) {
+  try {
+    const response = await fetch("/comment-votes/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment_id: commentId, value }),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
 }
 
 async function sendVote(annotationId, value) {
@@ -1572,6 +1753,7 @@ function loadStateForPdf(key) {
   clearOverlays();
   const state = pdfState.get(key);
   annotations.clear();
+  commentCache.clear();
   activeAnnotationId = null;
   if (!state) {
     ensureAnnotationMode();
@@ -1604,11 +1786,13 @@ async function loadAnnotationsForPdf(pdfName) {
     const textItems = [];
     const arrows = [];
     data.annotations.forEach((ann) => {
-    annotationsPayload.push({
-      id: ann.id,
-      server_id: ann.server_id,
-      x: ann.x,
-      y: ann.y,
+      const key = ann.hash || ann.id;
+      annotationsPayload.push({
+        id: key,
+        clientId: ann.id,
+        server_id: ann.server_id,
+        x: ann.x,
+        y: ann.y,
         note: ann.note || "",
         user: ann.user || "",
         isOwner: ann.is_owner ?? false,
@@ -1620,7 +1804,7 @@ async function loadAnnotationsForPdf(pdfName) {
       });
       (ann.textItems || []).forEach((item) => {
         textItems.push({
-          annotationId: ann.id,
+          annotationId: key,
           x: item.x,
           y: item.y,
           text: item.text || "",
@@ -1636,7 +1820,7 @@ async function loadAnnotationsForPdf(pdfName) {
       });
       (ann.arrows || []).forEach((arrow) => {
         arrows.push({
-          annotationId: ann.id,
+          annotationId: key,
           x1: arrow.x1,
           y1: arrow.y1,
           x2: arrow.x2,
@@ -1700,7 +1884,7 @@ async function saveAnnotationsForPdf() {
           };
         });
       return {
-        id: ann.id,
+        id: ann.clientId || ann.id,
         x: ann.x,
         y: ann.y,
         note: ann.note || "",
@@ -2057,14 +2241,17 @@ svg.addEventListener("pointerdown", (evt) => {
     annotationCounter += 1;
     activeAnnotationId = `ann_${Date.now()}_${annotationCounter}`;
     activeAnnotationViewOnly = false;
-    annotations.set(activeAnnotationId, {
-      id: activeAnnotationId,
+    const hash = generateHash();
+    annotations.set(hash, {
+      id: hash,
+      clientId: hash,
       x: point.x,
       y: point.y,
       isOwner: true,
-      hash: generateHash(),
+      hash,
       createdAt: new Date().toISOString(),
     });
+    activeAnnotationId = hash;
     stopAnnotationCreate();
     activateAnnotation(activeAnnotationId, { viewOnly: false });
     evt.preventDefault();
@@ -2264,6 +2451,23 @@ discardAnnotationBtn.addEventListener("click", () => {
 if (annotationViewBack) {
   annotationViewBack.addEventListener("click", () => {
     clearActiveAnnotation();
+  });
+}
+
+if (discussionSubmit) {
+  discussionSubmit.addEventListener("click", async () => {
+    if (!isAuthenticated) return;
+    const ann = annotations.get(activeAnnotationId);
+    if (!ann || !ann.server_id) return;
+    const body = discussionInput.value.trim();
+    if (!body) return;
+    const result = await sendComment(ann.server_id, body);
+    if (!result) return;
+    const list = commentCache.get(ann.server_id) || [];
+    list.push(result);
+    commentCache.set(ann.server_id, list);
+    discussionInput.value = "";
+    renderDiscussion(ann.server_id, list);
   });
 }
 
