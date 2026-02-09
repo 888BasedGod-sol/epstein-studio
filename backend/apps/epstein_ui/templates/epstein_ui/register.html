@@ -16,14 +16,15 @@
         <section class="panel" style="max-width: 460px; margin: 8vh auto 0;">
           <div class="tab-panel active" style="display: flex;">
             <div class="hint">Create a username and password.</div>
-            {% if form.errors %}
-              <div class="hint" style="color: #ff6b6b;">Please fix the errors below.</div>
-            {% endif %}
             <form method="post" style="display: flex; flex-direction: column; gap: 16px;">
               {% csrf_token %}
               <label class="field">
                 <span>Username</span>
-                <input type="text" name="username" autocomplete="username" required autofocus />
+                <input id="usernameField" type="text" name="username" autocomplete="username" required autofocus value="{{ form.data.username|default_if_none:'' }}" />
+                <div id="usernameHint" class="hint" style="display: none;"></div>
+                {% if form.errors.username %}
+                  <div class="hint" style="color: #ff6b6b;">{{ form.errors.username|join:", " }}</div>
+                {% endif %}
               </label>
               <label class="field">
                 <span>Password</span>
@@ -40,5 +41,47 @@
         </section>
       </main>
     </div>
+    <script>
+      const usernameField = document.getElementById("usernameField");
+      const usernameHint = document.getElementById("usernameHint");
+      let usernameTimer = null;
+
+      function setUsernameHint(message, ok = false) {
+        if (!usernameHint) return;
+        if (!message) {
+          usernameHint.style.display = "none";
+          usernameHint.textContent = "";
+          return;
+        }
+        usernameHint.style.display = "block";
+        usernameHint.textContent = message;
+        usernameHint.style.color = ok ? "#9fe88c" : "#ff6b6b";
+      }
+
+      if (usernameField) {
+        usernameField.addEventListener("input", () => {
+          if (usernameTimer) window.clearTimeout(usernameTimer);
+          const value = usernameField.value.trim();
+          if (!value) {
+            setUsernameHint("");
+            return;
+          }
+          usernameTimer = window.setTimeout(async () => {
+            try {
+              const res = await fetch(`/username-check/?u=${encodeURIComponent(value)}`);
+              if (!res.ok) return;
+              const data = await res.json();
+              if (data.available) {
+                setUsernameHint("Username is available.", true);
+              } else {
+                setUsernameHint("Username is already taken.");
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }, 250);
+        });
+      }
+    </script>
   </body>
 </html>

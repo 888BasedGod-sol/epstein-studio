@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Count, Q, Value, IntegerField, F, OuterRef, Subquery
@@ -355,6 +356,15 @@ def logout_view(request):
     """Logout helper that redirects back to the index."""
     logout(request)
     return redirect("index")
+
+
+def username_check(request):
+    """Return whether a username is available."""
+    username = (request.GET.get("u") or "").strip()
+    if not username:
+        return JsonResponse({"available": False})
+    exists = User.objects.filter(username__iexact=username).exists()
+    return JsonResponse({"available": not exists})
 
 
 def _annotation_to_dict(annotation: Annotation, request=None) -> dict:

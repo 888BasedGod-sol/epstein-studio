@@ -11,6 +11,7 @@ urlpatterns = [
     path("browse-list/", views.browse_list, name="browse_list"),
     path("register/", views.register, name="register"),
     path("logout/", views.logout_view, name="logout"),
+    path("username-check/", views.username_check, name="username_check"),
     path("annotations/", views.annotations_api, name="annotations_api"),
     path("annotation-votes/", views.annotation_votes, name="annotation_votes"),
     path("annotation-comments/", views.annotation_comments, name="annotation_comments"),
