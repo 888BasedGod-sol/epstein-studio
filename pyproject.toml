@@ -6,6 +6,7 @@ requires-python = ">=3.9"
 dependencies = [
   "django>=4.2.28",
   "pillow",
+  "psycopg[binary]>=3.2.13",
   "pytesseract",
   "tqdm",
 ]
