@@ -18,6 +18,7 @@ urlpatterns = [
     path("comment-votes/", views.comment_votes, name="comment_votes"),
     path("comment-delete/", views.delete_comment, name="comment_delete"),
     path("pdf-comments/", views.pdf_comments, name="pdf_comments"),
+    path("pdf-comment-votes/", views.pdf_comment_votes, name="pdf_comment_votes"),
     path("pdf-comment-replies/", views.pdf_comment_replies, name="pdf_comment_replies"),
     path("pdf-reply-votes/", views.pdf_reply_votes, name="pdf_reply_votes"),
     path("pdf-reply-delete/", views.pdf_reply_delete, name="pdf_reply_delete"),

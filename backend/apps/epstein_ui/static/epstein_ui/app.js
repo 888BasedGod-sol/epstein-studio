@@ -397,6 +397,24 @@ function updateAnnotationCardVote(ann) {
   }
 }
 
+function updatePdfCommentCardVote(comment) {
+  if (!annotationNotes || !comment) return;
+  const card = annotationNotes.querySelector(`.annotation-note[data-comment-id="${comment.id}"]`);
+  if (!card) return;
+  const score = card.querySelector(".vote-score");
+  if (score) {
+    score.textContent = (comment.upvotes || 0) - (comment.downvotes || 0);
+  }
+  const upBtn = card.querySelector(".vote-btn.up");
+  const downBtn = card.querySelector(".vote-btn.down");
+  if (upBtn) {
+    upBtn.classList.toggle("active", comment.user_vote === 1);
+  }
+  if (downBtn) {
+    downBtn.classList.toggle("active", comment.user_vote === -1);
+  }
+}
+
 function updatePdfVoteUI(data, forceDisabled = false) {
   if (!pdfVoteUp || !pdfVoteDown) return;
   const userVote = data?.user_vote || 0;
@@ -795,6 +813,7 @@ function renderNotesList() {
     annotationSort.classList.remove("hidden");
   }
 
+  const currentUserName = document.body.dataset.user || "";
   const combined = [];
   items.forEach((ann) => {
     combined.push({
@@ -812,7 +831,6 @@ function renderNotesList() {
   });
 
   const sortMode = annotationSortSelect?.value || "date";
-  const currentUserName = document.body.dataset.user || "";
   let filtered = combined;
   if (sortMode === "mine") {
     filtered = combined.filter((entry) => {
@@ -838,6 +856,7 @@ function renderNotesList() {
       const comment = entry.payload;
       const wrapper = document.createElement("div");
       wrapper.className = "annotation-note pdf-comment-card";
+      wrapper.dataset.commentId = comment.id;
       wrapper.addEventListener("click", () => {
         if (activePdfDiscussion && activePdfCommentId === comment.id) return;
         activePdfDiscussion = true;
@@ -850,7 +869,6 @@ function renderNotesList() {
       const meta = document.createElement("div");
       meta.className = "annotation-note-meta";
       const stamp = formatTimestamp(comment.created_at, { dateOnly: true });
-      const currentUserName = document.body.dataset.user || "";
       const isMine = currentUserName && comment.user === currentUserName;
       const author = isMine ? "By you" : comment.user ? `By ${comment.user}` : "By Unknown";
       meta.textContent = isMine ? "By you" : stamp ? `${author} • ${stamp}` : author;
@@ -867,8 +885,57 @@ function renderNotesList() {
         });
       });
 
+      const actions = document.createElement("div");
+      actions.className = "annotation-note-actions";
+
+      const upBtn = document.createElement("button");
+      upBtn.className = "vote-btn up";
+      upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+      if (comment.user_vote === 1) {
+        upBtn.classList.add("active");
+      }
+      const isMineVote = currentUserName && comment.user === currentUserName;
+      upBtn.disabled = !isAuthenticated || isMineVote;
+
+      const downBtn = document.createElement("button");
+      downBtn.className = "vote-btn down";
+      downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+      if (comment.user_vote === -1) {
+        downBtn.classList.add("active");
+      }
+      downBtn.disabled = !isAuthenticated || isMineVote;
+
+      const score = document.createElement("span");
+      score.className = "vote-score";
+      score.textContent = (comment.upvotes || 0) - (comment.downvotes || 0);
+
+      upBtn.addEventListener("click", async (evt) => {
+        evt.stopPropagation();
+        const result = await sendPdfCommentVote(comment.id, 1);
+        if (!result) return;
+        comment.upvotes = result.upvotes;
+        comment.downvotes = result.downvotes;
+        comment.user_vote = result.user_vote || 0;
+        updatePdfCommentCardVote(comment);
+      });
+
+      downBtn.addEventListener("click", async (evt) => {
+        evt.stopPropagation();
+        const result = await sendPdfCommentVote(comment.id, -1);
+        if (!result) return;
+        comment.upvotes = result.upvotes;
+        comment.downvotes = result.downvotes;
+        comment.user_vote = result.user_vote || 0;
+        updatePdfCommentCardVote(comment);
+      });
+
+      actions.appendChild(upBtn);
+      actions.appendChild(downBtn);
+      actions.appendChild(score);
+
       wrapper.appendChild(meta);
       wrapper.appendChild(text);
+      wrapper.appendChild(actions);
       annotationNotes.appendChild(wrapper);
       return;
     }
@@ -1372,6 +1439,21 @@ async function sendPdfComment(pdfName, body) {
     if (!response.ok) return null;
     const data = await response.json();
     return data.comment || null;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+async function sendPdfCommentVote(commentId, value) {
+  try {
+    const response = await fetch("/pdf-comment-votes/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment_id: commentId, value }),
+    });
+    if (!response.ok) return null;
+    return await response.json();
   } catch (err) {
     console.error(err);
     return null;

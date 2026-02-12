@@ -120,3 +120,13 @@ class PdfCommentReplyVote(models.Model):
 
     class Meta:
         unique_together = ("reply", "user")
+
+
+class PdfCommentVote(models.Model):
+    """Single user vote (+1 or -1) for a PDF comment."""
+    comment = models.ForeignKey(PdfComment, on_delete=models.CASCADE, related_name="votes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    value = models.SmallIntegerField()
+
+    class Meta:
+        unique_together = ("comment", "user")

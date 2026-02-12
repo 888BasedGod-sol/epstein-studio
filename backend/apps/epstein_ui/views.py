@@ -28,6 +28,7 @@ from .models import (
     PdfComment,
     PdfCommentReply,
     PdfCommentReplyVote,
+    PdfCommentVote,
 )
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
@@ -499,8 +500,11 @@ def annotations_api(request):
         pdf_comments = []
         if pdf_doc is not None:
             pdf_comments = [
-                _pdf_comment_to_dict(c)
-                for c in PdfComment.objects.filter(pdf=pdf_doc).select_related("user").order_by("created_at")
+                _pdf_comment_to_dict(c, request=request)
+                for c in PdfComment.objects.filter(pdf=pdf_doc)
+                .select_related("user")
+                .prefetch_related("votes")
+                .order_by("created_at")
             ]
         return JsonResponse({"annotations": payload, "pdf_comments": pdf_comments})
 
@@ -664,13 +668,25 @@ def _comment_to_dict(comment, request=None):
     }
 
 
-def _pdf_comment_to_dict(comment):
+def _pdf_comment_to_dict(comment, request=None):
+    votes = list(comment.votes.all())
+    upvotes = sum(1 for v in votes if v.value == 1)
+    downvotes = sum(1 for v in votes if v.value == -1)
+    user_vote = 0
+    if request is not None and request.user.is_authenticated:
+        for vote in votes:
+            if vote.user_id == request.user.id:
+                user_vote = vote.value
+                break
     return {
         "id": comment.id,
         "pdf": comment.pdf.filename,
         "user": comment.user.username,
         "body": comment.body,
         "created_at": comment.created_at.isoformat() if comment.created_at else None,
+        "upvotes": upvotes,
+        "downvotes": downvotes,
+        "user_vote": user_vote,
     }
 
 
@@ -712,9 +728,52 @@ def pdf_comments(request):
             return JsonResponse({"error": "Missing fields"}, status=400)
         pdf_doc, _ = PdfDocument.objects.get_or_create(filename=pdf_key, defaults={"path": pdf_key})
         comment = PdfComment.objects.create(pdf=pdf_doc, user=request.user, body=body)
-        return JsonResponse({"comment": _pdf_comment_to_dict(comment)})
+        return JsonResponse({"comment": _pdf_comment_to_dict(comment, request=request)})
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def pdf_comment_votes(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Login required"}, status=401)
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    comment_id = payload.get("comment_id")
+    value = payload.get("value")
+    if comment_id is None or value not in (-1, 1):
+        return JsonResponse({"error": "Invalid payload"}, status=400)
+    try:
+        comment = PdfComment.objects.get(id=comment_id)
+    except PdfComment.DoesNotExist:
+        return JsonResponse({"error": "Not found"}, status=404)
+    if comment.user_id == request.user.id:
+        return JsonResponse({"error": "Cannot vote own comment"}, status=403)
+
+    vote, created = PdfCommentVote.objects.get_or_create(
+        comment=comment,
+        user=request.user,
+        defaults={"value": value},
+    )
+    if not created:
+        if vote.value == value:
+            vote.delete()
+        else:
+            vote.value = value
+            vote.save(update_fields=["value"])
+
+    upvotes = PdfCommentVote.objects.filter(comment=comment, value=1).count()
+    downvotes = PdfCommentVote.objects.filter(comment=comment, value=-1).count()
+    user_vote = 0
+    try:
+        user_vote = PdfCommentVote.objects.get(comment=comment, user=request.user).value
+    except PdfCommentVote.DoesNotExist:
+        user_vote = 0
+    return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})
 
 
 @csrf_exempt
