@@ -129,6 +129,8 @@ body {
   border-radius: 10px;
   padding: 10px 12px;
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .annotation-view-note.empty {
@@ -439,6 +441,14 @@ body {
   font-size: 13px;
   color: var(--text);
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.annotation-note-text a,
+.annotation-view-note a {
+  color: #7ee6ff;
+  text-decoration: underline;
 }
 
 .annotation-note-text.empty {

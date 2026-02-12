@@ -282,7 +282,7 @@ function updateAnnotationPanelMode() {
       const ann = annotations.get(activeAnnotationId);
       const note = (ann?.note || "").trim();
       if (note) {
-        annotationViewNote.textContent = note;
+        annotationViewNote.innerHTML = linkify(note);
         annotationViewNote.classList.remove("empty");
       } else {
         annotationViewNote.textContent = "User left no Note.";
@@ -392,8 +392,13 @@ function activateAnnotation(id, { viewOnly = false } = {}) {
   }
   if (annotationViewNote && ann) {
     const note = (ann.note || "").trim();
-    annotationViewNote.textContent = note || "User left no Note.";
-    annotationViewNote.classList.toggle("empty", !note);
+    if (note) {
+      annotationViewNote.innerHTML = linkify(note);
+      annotationViewNote.classList.remove("empty");
+    } else {
+      annotationViewNote.textContent = "User left no Note.";
+      annotationViewNote.classList.add("empty");
+    }
   }
   if (annotationViewHash && ann) {
     annotationViewHash.textContent = ann.hash ? `${ann.hash}` : "";
@@ -769,7 +774,16 @@ function renderNotesList() {
     const text = document.createElement("div");
     const noteText = (ann.note || "").trim();
     text.className = noteText ? "annotation-note-text" : "annotation-note-text empty";
-    text.textContent = noteText || "No Note";
+    if (noteText) {
+      text.innerHTML = linkify(noteText);
+      text.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", (evt) => {
+          evt.stopPropagation();
+        });
+      });
+    } else {
+      text.textContent = "No Note";
+    }
 
     const actions = document.createElement("div");
     actions.className = "annotation-note-actions";
@@ -1125,6 +1139,15 @@ function setActiveTab(tabId) {
   tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === tabId));
   panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === tabId));
   updateTabStates();
+}
+
+function linkify(text) {
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  return escaped.replace(urlRegex, (match) => {
+    const href = match.startsWith("http") ? match : `https://${match}`;
+    return `<a href="${href}" target="_blank" rel="noopener">${match}</a>`;
+  });
 }
 
 function parseTranslate(transform) {
