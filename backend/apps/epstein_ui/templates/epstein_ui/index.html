@@ -47,9 +47,16 @@
 
       <main class="layout">
         <section class="panel annotation-panel">
-          <button id="createAnnotationBtn" class="btn">Create Annotation</button>
+          <div class="annotation-actions">
+            <button id="createAnnotationBtn" class="btn">Create Annotation</button>
+          </div>
           <div id="annotationPrompt" class="hint hidden">
             Click on the canvas to place a new annotation.
+          </div>
+          <div id="pdfCommentForm" class="pdf-comment-form">
+            <textarea id="pdfCommentInput" rows="3" placeholder="Add a comment about this PDF..."></textarea>
+            <button id="pdfCommentSubmit" class="btn btn-secondary" type="button">Post Comment</button>
+            <div id="pdfCommentLoginHint" class="discussion-hint hidden">Login to comment.</div>
           </div>
           <div id="annotationNotes" class="annotation-notes"></div>
           <div id="annotationStatus" class="annotation-status hidden">Annotations Loading...</div>

@@ -28,6 +28,10 @@ const colorPicker = document.getElementById("colorPicker");
 const opacityRange = document.getElementById("opacityRange");
 const createAnnotationBtn = document.getElementById("createAnnotationBtn");
 const annotationPrompt = document.getElementById("annotationPrompt");
+const pdfCommentForm = document.getElementById("pdfCommentForm");
+const pdfCommentInput = document.getElementById("pdfCommentInput");
+const pdfCommentSubmit = document.getElementById("pdfCommentSubmit");
+const pdfCommentLoginHint = document.getElementById("pdfCommentLoginHint");
 const annotationControls = document.getElementById("annotationControls");
 const annotationNotes = document.getElementById("annotationNotes");
 const annotationStatus = document.getElementById("annotationStatus");
@@ -116,6 +120,7 @@ let hoveredAnchorId = null;
 let hoverPreviewState = null;
 let hoverPreviewId = null;
 let currentPdfVotes = { upvotes: 0, downvotes: 0, user_vote: 0 };
+let pdfComments = [];
 
 function formatTimestamp(value, { dateOnly = false } = {}) {
   if (!value) return "";
@@ -429,6 +434,9 @@ function updateAnnotationVisibility() {
     if (annotationNotes) {
       annotationNotes.classList.add("hidden");
     }
+    if (pdfCommentForm) {
+      pdfCommentForm.classList.add("hidden");
+    }
     if (annotationSort) {
       annotationSort.classList.add("hidden");
     }
@@ -454,6 +462,9 @@ function updateAnnotationVisibility() {
   }
   if (annotationNotes) {
     annotationNotes.classList.remove("hidden");
+  }
+  if (pdfCommentForm) {
+    pdfCommentForm.classList.remove("hidden");
   }
   if (annotationSort) {
     annotationSort.classList.add("hidden");
@@ -715,11 +726,47 @@ function renderNotesList() {
   if (!annotationNotes) return;
   annotationNotes.innerHTML = "";
   const items = Array.from(annotations.values());
+  const hasPdfComments = pdfComments.length > 0;
   if (annotationStatus) {
-    annotationStatus.textContent = items.length ? "" : "No Annotations yet";
-    annotationStatus.classList.toggle("hidden", items.length > 0);
+    const hasAnnotations = items.length > 0;
+    annotationStatus.textContent = hasAnnotations || hasPdfComments ? "" : "No Annotations yet";
+    annotationStatus.classList.toggle("hidden", hasAnnotations || hasPdfComments);
   }
-  if (!items.length) return;
+  if (!items.length && !hasPdfComments) return;
+
+  if (hasPdfComments) {
+    const header = document.createElement("div");
+    header.className = "annotation-section-title";
+    header.textContent = "Discussion";
+    annotationNotes.appendChild(header);
+    pdfComments.forEach((comment) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "annotation-note pdf-comment-card";
+    const meta = document.createElement("div");
+    meta.className = "annotation-note-meta";
+    const stamp = formatTimestamp(comment.created_at, { dateOnly: true });
+    const currentUserName = document.body.dataset.user || "";
+    const isMine = currentUserName && comment.user === currentUserName;
+    const author = isMine ? "By you" : comment.user ? `By ${comment.user}` : "By Unknown";
+    meta.textContent = stamp ? `${author} • ${stamp}` : author;
+    if (isMine) {
+      meta.classList.add("by-you");
+    }
+
+      const text = document.createElement("div");
+      text.className = "annotation-note-text";
+      text.innerHTML = linkify(comment.body || "");
+      text.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", (evt) => {
+          evt.stopPropagation();
+        });
+      });
+
+      wrapper.appendChild(meta);
+      wrapper.appendChild(text);
+      annotationNotes.appendChild(wrapper);
+    });
+  }
 
   const mine = items.filter((ann) => ann.isOwner);
   const others = items.filter((ann) => !ann.isOwner);
@@ -760,12 +807,16 @@ function renderNotesList() {
     const wrapper = document.createElement("div");
     wrapper.className = "annotation-note";
     wrapper.dataset.annotation = ann.id;
+    const label = document.createElement("div");
+    label.className = "annotation-note-label";
+    label.textContent = "Annotation";
 
     const meta = document.createElement("div");
     meta.className = "annotation-note-meta";
     const stamp = formatTimestamp(ann.createdAt, { dateOnly: true });
     if (ann.isOwner) {
-      meta.textContent = stamp ? `By you • ${stamp}` : "By you";
+      meta.textContent = "By you";
+      meta.classList.add("by-you");
     } else {
       const author = ann.user ? `By ${ann.user}` : "By Unknown";
       meta.textContent = stamp ? `${author} • ${stamp}` : author;
@@ -838,6 +889,7 @@ function renderNotesList() {
     actions.appendChild(upBtn);
     actions.appendChild(downBtn);
     actions.appendChild(score);
+    wrapper.appendChild(label);
     wrapper.appendChild(meta);
     wrapper.appendChild(text);
     wrapper.appendChild(actions);
@@ -1079,6 +1131,22 @@ async function sendComment(annotationId, body, parentId = null) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ annotation_id: annotationId, body, parent_id: parentId }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.comment || null;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+async function sendPdfComment(pdfName, body) {
+  try {
+    const response = await fetch("/pdf-comments/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pdf: pdfName, body }),
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -2129,6 +2197,7 @@ function clearOverlays() {
   activeGroup = null;
   activeHint = null;
   annotations.clear();
+  pdfComments = [];
   activeAnnotationId = null;
   annotationCounter = 0;
   stopAnnotationCreate();
@@ -2179,13 +2248,14 @@ function serializeCurrentState() {
       y2: parseFloat(line.dataset.rawY2 || line.getAttribute("y2")),
     };
   });
-  pdfState.set(currentPdfKey, { annotations: annotationItems, textItems, arrows });
+  pdfState.set(currentPdfKey, { annotations: annotationItems, textItems, arrows, pdfComments });
 }
 
 function loadStateForPdf(key) {
   clearOverlays();
   const state = pdfState.get(key);
   annotations.clear();
+  pdfComments = [];
   commentCache.clear();
   activeAnnotationId = null;
   if (!state) {
@@ -2195,6 +2265,7 @@ function loadStateForPdf(key) {
   (state.annotations || []).forEach((annotation) => {
     annotations.set(annotation.id, annotation);
   });
+  pdfComments = Array.isArray(state.pdfComments) ? state.pdfComments : [];
   state.textItems.forEach((item) => createTextBoxFromData(item));
   state.arrows.forEach((item) => addArrowFromData(item));
   (state.annotations || []).forEach((annotation) => {
@@ -2265,7 +2336,8 @@ async function loadAnnotationsForPdf(pdfName) {
         });
       });
     });
-    pdfState.set(pdfName, { annotations: annotationsPayload, textItems, arrows });
+    pdfComments = Array.isArray(data.pdf_comments) ? data.pdf_comments : [];
+    pdfState.set(pdfName, { annotations: annotationsPayload, textItems, arrows, pdfComments });
     loadStateForPdf(pdfName);
     rebuildHeatmapBase();
     renderHeatmap();
@@ -3000,6 +3072,7 @@ createAnnotationBtn.addEventListener("click", () => {
   }
 });
 
+
 commitAnnotationBtn.addEventListener("click", () => {
   if (!isAuthenticated) return;
   commitActiveAnnotation();
@@ -3131,6 +3204,35 @@ if (discussionInput) {
     if (evt.shiftKey) return;
     evt.preventDefault();
     discussionSubmit?.click();
+  });
+}
+
+if (pdfCommentSubmit) {
+  pdfCommentSubmit.addEventListener("click", async () => {
+    if (!isAuthenticated) return;
+    if (!currentPdfKey) return;
+    const body = (pdfCommentInput?.value || "").trim();
+    if (!body) return;
+    const result = await sendPdfComment(currentPdfKey, body);
+    if (!result) return;
+    pdfComments.push(result);
+    const existing = pdfState.get(currentPdfKey);
+    if (existing) {
+      pdfState.set(currentPdfKey, { ...existing, pdfComments });
+    }
+    if (pdfCommentInput) {
+      pdfCommentInput.value = "";
+    }
+    renderNotesList();
+  });
+}
+
+if (pdfCommentInput) {
+  pdfCommentInput.addEventListener("keydown", (evt) => {
+    if (evt.key !== "Enter") return;
+    if (evt.shiftKey) return;
+    evt.preventDefault();
+    pdfCommentSubmit?.click();
   });
 }
 

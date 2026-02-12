@@ -93,3 +93,11 @@ class PdfVote(models.Model):
 
     class Meta:
         unique_together = ("pdf", "user")
+
+
+class PdfComment(models.Model):
+    """Discussion comment for a PDF."""
+    pdf = models.ForeignKey(PdfDocument, on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)

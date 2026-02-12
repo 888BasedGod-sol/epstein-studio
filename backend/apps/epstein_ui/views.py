@@ -16,7 +16,7 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.db.utils import OperationalError, ProgrammingError
 
-from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote, PdfVote
+from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote, PdfVote, PdfComment
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
 
@@ -477,13 +477,20 @@ def annotations_api(request):
         pdf_key = (request.GET.get("pdf") or "").strip()
         if not pdf_key:
             return JsonResponse({"error": "Missing pdf"}, status=400)
+        pdf_doc = PdfDocument.objects.filter(filename=pdf_key).first()
         annotations = (
             Annotation.objects.filter(pdf_key=pdf_key)
             .select_related("user")
             .prefetch_related("text_items", "arrow_items", "votes")
         )
         payload = [_annotation_to_dict(a, request=request) for a in annotations]
-        return JsonResponse({"annotations": payload})
+        pdf_comments = []
+        if pdf_doc is not None:
+            pdf_comments = [
+                _pdf_comment_to_dict(c)
+                for c in PdfComment.objects.filter(pdf=pdf_doc).select_related("user").order_by("created_at")
+            ]
+        return JsonResponse({"annotations": payload, "pdf_comments": pdf_comments})
 
     if request.method == "POST":
         if not request.user.is_authenticated:
@@ -643,6 +650,36 @@ def _comment_to_dict(comment, request=None):
         "downvotes": downvotes,
         "user_vote": user_vote,
     }
+
+
+def _pdf_comment_to_dict(comment):
+    return {
+        "id": comment.id,
+        "pdf": comment.pdf.filename,
+        "user": comment.user.username,
+        "body": comment.body,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+    }
+
+
+@csrf_exempt
+def pdf_comments(request):
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Login required"}, status=401)
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        pdf_key = (payload.get("pdf") or "").strip()
+        body = (payload.get("body") or "").strip()
+        if not pdf_key or not body:
+            return JsonResponse({"error": "Missing fields"}, status=400)
+        pdf_doc, _ = PdfDocument.objects.get_or_create(filename=pdf_key, defaults={"path": pdf_key})
+        comment = PdfComment.objects.create(pdf=pdf_doc, user=request.user, body=body)
+        return JsonResponse({"comment": _pdf_comment_to_dict(comment)})
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt

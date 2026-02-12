@@ -17,6 +17,7 @@ urlpatterns = [
     path("annotation-comments/", views.annotation_comments, name="annotation_comments"),
     path("comment-votes/", views.comment_votes, name="comment_votes"),
     path("comment-delete/", views.delete_comment, name="comment_delete"),
+    path("pdf-comments/", views.pdf_comments, name="pdf_comments"),
     path("pdf-votes/", views.pdf_votes, name="pdf_votes"),
     re_path(r"^(?P<pdf_slug>[A-Za-z0-9_-]+)$", views.index, name="index_pdf"),
 ]
