@@ -313,6 +313,27 @@ body {
   grid-template-columns: 1fr;
 }
 
+.about-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.about-content {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.about-text {
+  font-size: 26px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 .about-screens {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
