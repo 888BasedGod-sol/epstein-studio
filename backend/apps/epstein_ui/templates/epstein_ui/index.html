@@ -28,8 +28,8 @@
         <div class="topbar-row">
           <div class="brand">Epstein Studio</div>
           <div class="topbar-actions">
-            <a class="btn btn-secondary" href="/about/">About</a>
             {% if user.is_authenticated %}
+              <a class="btn btn-secondary" href="/about/">About</a>
               <details class="account-menu">
                 <summary class="account-button" aria-label="Account menu">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -48,6 +48,7 @@
                 </div>
               </details>
             {% else %}
+              <a class="btn btn-secondary" href="/about/">About</a>
               <a class="btn" href="/login/">Participate</a>
             {% endif %}
           </div>

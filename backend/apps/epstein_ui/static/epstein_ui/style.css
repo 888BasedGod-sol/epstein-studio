@@ -713,6 +713,12 @@ body {
   gap: 16px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand {
   font-size: clamp(24px, 4vw, 40px);
   font-weight: 700;
