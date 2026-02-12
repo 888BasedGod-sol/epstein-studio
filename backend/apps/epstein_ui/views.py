@@ -15,8 +15,6 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.db.utils import OperationalError, ProgrammingError
-from django.db.models import Count, Q, Value, IntegerField, F, OuterRef, Subquery
-from django.db.models.functions import Coalesce
 
 from .models import Annotation, TextItem, ArrowItem, PdfDocument, AnnotationVote, AnnotationComment, CommentVote, PdfVote
 
@@ -240,46 +238,30 @@ def browse_list(request):
     except ValueError:
         page_num = 1
     page_size = 50
-    try:
-        _sync_pdf_index()
-    except (OperationalError, ProgrammingError):
-        pass
     qs = PdfDocument.objects.all()
     if query:
         qs = qs.filter(filename__icontains=query)
-    ann_count = Subquery(
-        Annotation.objects.filter(pdf_key=OuterRef("filename"))
-        .values("pdf_key")
-        .annotate(total=Count("id"))
-        .values("total")[:1],
-        output_field=IntegerField(),
-    )
-    qs = qs.annotate(
-        ann_total=Coalesce(ann_count, Value(0)),
-        upvotes=Count("votes", filter=Q(votes__value=1), distinct=True),
-        downvotes=Count("votes", filter=Q(votes__value=-1), distinct=True),
-    ).annotate(vote_score=F("upvotes") - F("downvotes"))
     if sort == "promising":
         qs = qs.order_by("-vote_score", "filename")
     elif sort == "least":
         qs = qs.order_by("vote_score", "filename")
     elif sort == "ann_most":
-        qs = qs.order_by("-ann_total", "filename")
+        qs = qs.order_by("-annotation_count", "filename")
     elif sort == "ann_least":
-        qs = qs.order_by("ann_total", "filename")
+        qs = qs.order_by("annotation_count", "filename")
     else:
         qs = qs.order_by("filename")
 
     total = qs.count()
     start = (page_num - 1) * page_size
     end = start + page_size
-    docs = list(qs.values("filename", "vote_score", "ann_total")[start:end])
+    docs = list(qs.values("filename", "vote_score", "annotation_count")[start:end])
     items = [
         {
             "filename": doc["filename"],
             "slug": doc["filename"].replace(".pdf", ""),
             "upvotes": doc["vote_score"] or 0,
-            "annotations": doc["ann_total"] or 0,
+            "annotations": doc["annotation_count"] or 0,
         }
         for doc in docs
     ]
@@ -343,6 +325,7 @@ def pdf_votes(request):
             vote.save(update_fields=["value"])
     upvotes = PdfVote.objects.filter(pdf=pdf_doc, value=1).count()
     downvotes = PdfVote.objects.filter(pdf=pdf_doc, value=-1).count()
+    PdfDocument.objects.filter(id=pdf_doc.id).update(vote_score=upvotes - downvotes)
     user_vote = 0
     try:
         user_vote = PdfVote.objects.get(pdf=pdf_doc, user=request.user).value
@@ -524,6 +507,9 @@ def annotations_api(request):
         if seen_client_ids:
             delete_qs = delete_qs.exclude(client_id__in=seen_client_ids, hash__isnull=True)
         delete_qs.delete()
+        PdfDocument.objects.filter(filename=pdf_key).update(
+            annotation_count=Annotation.objects.filter(pdf_key=pdf_key).count()
+        )
         return JsonResponse({"ok": True})
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
