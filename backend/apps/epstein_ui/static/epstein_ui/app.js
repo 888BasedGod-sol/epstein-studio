@@ -2336,11 +2336,33 @@ async function saveAnnotationsForPdf() {
     }),
   };
   try {
-    await fetch("/annotations/", {
+    const response = await fetch("/annotations/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data && Array.isArray(data.mappings)) {
+      data.mappings.forEach((mapping) => {
+        const hash = mapping.hash || "";
+        let target = null;
+        if (hash && annotations.has(hash)) {
+          target = annotations.get(hash);
+        } else {
+          const found = Array.from(annotations.values()).find((ann) => ann.clientId === mapping.client_id);
+          if (found) target = found;
+        }
+        if (target) {
+          target.server_id = mapping.server_id;
+          if (hash && target.id !== hash) {
+            annotations.delete(target.id);
+            target.id = hash;
+            annotations.set(hash, target);
+          }
+        }
+      });
+    }
   } catch (err) {
     console.error(err);
   }
@@ -3097,6 +3119,15 @@ if (discussionSubmit) {
     commentCache.set(ann.server_id, list);
     discussionInput.value = "";
     renderDiscussion(ann.server_id, list);
+  });
+}
+
+if (discussionInput) {
+  discussionInput.addEventListener("keydown", (evt) => {
+    if (evt.key !== "Enter") return;
+    if (evt.shiftKey) return;
+    evt.preventDefault();
+    discussionSubmit?.click();
   });
 }
 

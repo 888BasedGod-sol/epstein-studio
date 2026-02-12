@@ -475,6 +475,7 @@ def annotations_api(request):
 
         seen_hashes = set()
         seen_client_ids = set()
+        saved_mappings = []
         for ann in annotations_payload:
             client_id = str(ann.get("id") or "").strip()
             if not client_id:
@@ -508,6 +509,11 @@ def annotations_api(request):
                         "note": ann.get("note") or "",
                     },
                 )
+            saved_mappings.append({
+                "client_id": client_id,
+                "server_id": annotation_obj.id,
+                "hash": str(annotation_obj.hash) if annotation_obj.hash else "",
+            })
             TextItem.objects.filter(annotation=annotation_obj).delete()
             ArrowItem.objects.filter(annotation=annotation_obj).delete()
 
@@ -544,7 +550,7 @@ def annotations_api(request):
         PdfDocument.objects.filter(filename=pdf_key).update(
             annotation_count=Annotation.objects.filter(pdf_key=pdf_key).count()
         )
-        return JsonResponse({"ok": True})
+        return JsonResponse({"ok": True, "mappings": saved_mappings})
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
