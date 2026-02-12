@@ -14,6 +14,7 @@
         <div class="topbar-row">
           <div class="brand">Epstein Studio</div>
           <div class="topbar-actions">
+            <a class="btn btn-secondary" href="/about/">About</a>
             {% if request.user.is_authenticated %}
               <details class="account-menu">
                 <summary class="account-button" aria-label="Account">
@@ -30,7 +31,7 @@
                 </div>
               </details>
             {% else %}
-              <a class="btn" href="/login/">Login</a>
+              <a class="btn" href="/login/">Participate</a>
             {% endif %}
           </div>
         </div>

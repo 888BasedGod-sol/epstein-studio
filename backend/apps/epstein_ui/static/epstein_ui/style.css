@@ -313,6 +313,21 @@ body {
   grid-template-columns: 1fr;
 }
 
+.about-screens {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.about-shot {
+  border: 1px dashed #2a3236;
+  border-radius: 12px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+  background: #121618;
+}
 .notifications-list {
   display: flex;
   flex-direction: column;

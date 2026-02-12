@@ -27,27 +27,30 @@
       <header class="topbar">
         <div class="topbar-row">
           <div class="brand">Epstein Studio</div>
-          {% if user.is_authenticated %}
-            <details class="account-menu">
-              <summary class="account-button" aria-label="Account menu">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="8" r="4"></circle>
-                  <path d="M4 20c1.7-3.6 5-6 8-6s6.3 2.4 8 6"></path>
-                </svg>
-                <span class="notif-dot hidden" aria-hidden="true"></span>
-              </summary>
-              <div class="account-dropdown">
-                <div class="account-username">{{ user.username }}</div>
-                <a class="account-link" href="/notifications/">
-                  Notifications
+          <div class="topbar-actions">
+            <a class="btn btn-secondary" href="/about/">About</a>
+            {% if user.is_authenticated %}
+              <details class="account-menu">
+                <summary class="account-button" aria-label="Account menu">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 20c1.7-3.6 5-6 8-6s6.3 2.4 8 6"></path>
+                  </svg>
                   <span class="notif-dot hidden" aria-hidden="true"></span>
-                </a>
-                <a class="account-link" href="/logout/">Logout</a>
-              </div>
-            </details>
-          {% else %}
-            <a class="btn" href="/login/">Participate</a>
-          {% endif %}
+                </summary>
+                <div class="account-dropdown">
+                  <div class="account-username">{{ user.username }}</div>
+                  <a class="account-link" href="/notifications/">
+                    Notifications
+                    <span class="notif-dot hidden" aria-hidden="true"></span>
+                  </a>
+                  <a class="account-link" href="/logout/">Logout</a>
+                </div>
+              </details>
+            {% else %}
+              <a class="btn" href="/login/">Participate</a>
+            {% endif %}
+          </div>
         </div>
       </header>
 

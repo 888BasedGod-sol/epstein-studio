@@ -1,0 +1,45 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>About • Epstein Studio</title>
+    <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
+    <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="topbar-row">
+          <div class="brand">Epstein Studio</div>
+          <div class="topbar-actions">
+            <a class="btn btn-secondary" href="/browse/">Browse</a>
+            <a class="btn" href="/">Back to Canvas</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout notifications-layout">
+        <section class="panel">
+          <div class="file-title">About</div>
+          <div class="hint">
+            Epstein Studio is a collaborative workspace for annotating redacted PDF files.
+          </div>
+          <div class="hint">
+            You can place annotations, add text overlays, draw hints, and discuss findings with other users.
+            Comments and annotations are visible to everyone.
+          </div>
+          <div class="hint">
+            Below are placeholder areas for screenshots:
+          </div>
+
+          <div class="about-screens">
+            <div class="about-shot">Screenshot placeholder</div>
+            <div class="about-shot">Screenshot placeholder</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

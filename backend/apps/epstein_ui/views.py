@@ -178,6 +178,11 @@ def browse(request):
     return render(request, "epstein_ui/browse.html")
 
 
+def about(request):
+    """Render the about page."""
+    return render(request, "epstein_ui/about.html")
+
+
 def random_pdf(request):
     """Pick a random PDF and return rendered page metadata."""
     try:

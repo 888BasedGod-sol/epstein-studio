@@ -129,16 +129,23 @@ if (searchInput) {
   });
 }
 
-loadPage();
-if (document.body.dataset.auth === "1") {
+function updateNotificationDots(count) {
+  notificationDots.forEach((dot) => {
+    if (!dot) return;
+    dot.classList.toggle("hidden", !count);
+  });
+}
+
+function loadNotificationCount() {
+  if (document.body.dataset.auth !== "1") return;
   fetch("/notifications-count/")
-    .then((response) => response.ok ? response.json() : null)
+    .then((response) => (response.ok ? response.json() : null))
     .then((data) => {
       if (!data) return;
-      notificationDots.forEach((dot) => {
-        if (!dot) return;
-        dot.classList.toggle("hidden", !data.count);
-      });
+      updateNotificationDots(data.count || 0);
     })
     .catch((err) => console.error(err));
 }
+
+loadPage();
+loadNotificationCount();
