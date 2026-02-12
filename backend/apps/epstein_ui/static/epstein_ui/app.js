@@ -3794,7 +3794,7 @@ if (window.DEBUG_MODE) {
     searchInput.value = slug;
     searchPdf();
   } else {
-    fetchRandomPdf();
+    window.location.href = "/browse/";
   }
 }
 window.addEventListener("resize", () => fitToView(true));
