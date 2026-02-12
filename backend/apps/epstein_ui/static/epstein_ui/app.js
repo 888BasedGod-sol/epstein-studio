@@ -842,8 +842,8 @@ function renderNotesList() {
 
   if (sortMode === "upvotes") {
     filtered.sort((a, b) => {
-      const scoreA = a.type === "annotation" ? (a.payload.upvotes || 0) - (a.payload.downvotes || 0) : 0;
-      const scoreB = b.type === "annotation" ? (b.payload.upvotes || 0) - (b.payload.downvotes || 0) : 0;
+      const scoreA = (a.payload.upvotes || 0) - (a.payload.downvotes || 0);
+      const scoreB = (b.payload.upvotes || 0) - (b.payload.downvotes || 0);
       if (scoreB !== scoreA) return scoreB - scoreA;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
