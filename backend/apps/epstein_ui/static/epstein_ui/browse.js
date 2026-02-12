@@ -1,6 +1,7 @@
 const list = document.getElementById("browseList");
 const moreBtn = document.getElementById("browseMore");
 const sortSelect = document.getElementById("browseSort");
+const notificationDots = document.querySelectorAll(".notif-dot");
 const randomBtn = document.getElementById("browseRandom");
 const searchInput = document.getElementById("browseSearch");
 
@@ -129,3 +130,15 @@ if (searchInput) {
 }
 
 loadPage();
+if (document.body.dataset.auth === "1") {
+  fetch("/notifications-count/")
+    .then((response) => response.ok ? response.json() : null)
+    .then((data) => {
+      if (!data) return;
+      notificationDots.forEach((dot) => {
+        if (!dot) return;
+        dot.classList.toggle("hidden", !data.count);
+      });
+    })
+    .catch((err) => console.error(err));
+}
