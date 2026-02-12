@@ -679,10 +679,10 @@ body {
 
 .page {
   height: 100vh;
-  padding: 28px clamp(20px, 4vw, 52px) 40px;
+  padding: 16px clamp(12px, 2vw, 28px) 20px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
 }
 
 .topbar {
@@ -713,7 +713,7 @@ body {
 .layout {
   display: grid;
   grid-template-columns: minmax(240px, 320px) 1fr;
-  gap: clamp(18px, 3vw, 40px);
+  gap: clamp(12px, 2vw, 24px);
   min-height: calc(100vh - 190px);
   height: calc(100vh - 190px);
   flex: 1;
@@ -1457,7 +1457,7 @@ image {
 .coffee-link {
   position: fixed;
   right: clamp(20px, 4vw, 52px);
-  bottom: 10px;
+  bottom: -2px;
   font-size: 12px;
   color: #9aa3a8;
   text-decoration: none;
