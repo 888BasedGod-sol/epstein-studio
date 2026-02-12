@@ -167,9 +167,9 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
     return rendered
 
 
-def index(request, pdf_slug=None):
+def index(request, pdf_slug=None, target_hash=None):
     """Render the single-page UI."""
-    return render(request, "epstein_ui/index.html")
+    return render(request, "epstein_ui/index.html", {"target_hash": target_hash})
 
 
 def browse(request):
@@ -680,6 +680,7 @@ def _pdf_comment_to_dict(comment, request=None):
                 break
     return {
         "id": comment.id,
+        "hash": str(comment.hash) if comment.hash else "",
         "pdf": comment.pdf.filename,
         "user": comment.user.username,
         "body": comment.body,

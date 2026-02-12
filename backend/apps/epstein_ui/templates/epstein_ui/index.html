@@ -8,7 +8,7 @@
     <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
     <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
   </head>
-  <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}">
+  <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}" data-target-hash="{% if target_hash %}{{ target_hash }}{% endif %}">
     <div class="page">
       <div id="contextMenu" class="context-menu">
         <button data-action="edit">Edit</button>
@@ -75,8 +75,14 @@
               <button class="tab tab-hints" data-tab="hints">Hints</button>
             </div>
             <div class="tab-panel active" data-panel="notes">
-              <div id="annotationViewTitle" class="annotation-view-title hidden"></div>
-              <div id="annotationViewHash" class="annotation-view-hash hidden"></div>
+              <div id="annotationViewHeader" class="annotation-view-header hidden">
+                <div id="annotationViewTitle" class="annotation-view-title"></div>
+                <div id="annotationViewMeta" class="annotation-view-meta">
+                  <button id="annotationViewCopy" class="copy-link-btn" type="button" title="Copy link">
+                    <img src="/static/epstein_ui/icons/link.svg" alt="Copy link" />
+                  </button>
+                </div>
+              </div>
               <div id="annotationViewNote" class="annotation-view-note hidden"></div>
               <div id="annotationViewActions" class="annotation-view-actions hidden">
                 <div class="annotation-view-votes">

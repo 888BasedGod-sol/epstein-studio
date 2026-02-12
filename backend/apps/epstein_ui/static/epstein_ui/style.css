@@ -111,6 +111,14 @@ body {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
+  margin: 0;
+}
+
+.annotation-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 6px;
 }
 
@@ -161,10 +169,6 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.annotation-view-actions.pdf-discussion .annotation-view-votes {
-  display: none;
 }
 
 #annotationViewBack {
@@ -559,6 +563,25 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.copy-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-link-btn img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  filter: brightness(0) saturate(100%) invert(70%) sepia(8%) saturate(480%) hue-rotate(162deg);
 }
 
 .vote-btn:disabled {

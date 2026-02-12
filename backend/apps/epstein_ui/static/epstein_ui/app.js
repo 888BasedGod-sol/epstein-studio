@@ -53,7 +53,8 @@ const contextMenu = document.getElementById("contextMenu");
 const colorSwatch = document.getElementById("colorSwatch");
 const annotationTabs = document.getElementById("annotationTabs");
 const annotationViewTitle = document.getElementById("annotationViewTitle");
-const annotationViewHash = document.getElementById("annotationViewHash");
+const annotationViewCopy = document.getElementById("annotationViewCopy");
+const annotationViewHeader = document.getElementById("annotationViewHeader");
 const annotationViewActions = document.getElementById("annotationViewActions");
 const annotationViewUp = document.getElementById("annotationViewUp");
 const annotationViewDown = document.getElementById("annotationViewDown");
@@ -71,6 +72,7 @@ const discussionSubmit = document.getElementById("discussionSubmit");
 const discussionLoginHint = document.getElementById("discussionLoginHint");
 const discussionEditBtn = document.getElementById("discussionEditBtn");
 const isAuthenticated = document.body.dataset.auth === "1";
+let initialTargetHash = document.body.dataset.targetHash || "";
 
 // --- Shared state (viewport, active elements, annotations) ---
 let dragState = null;
@@ -253,12 +255,11 @@ function updateAnnotationPanelMode() {
   if (activePdfDiscussion) {
     activeAnnotationViewOnly = false;
     if (annotationTabs) annotationTabs.classList.add("hidden");
-    if (annotationViewTitle) annotationViewTitle.classList.remove("hidden");
-    if (annotationViewHash) annotationViewHash.classList.add("hidden");
+    if (annotationViewHeader) annotationViewHeader.classList.remove("hidden");
     if (annotationViewNote) annotationViewNote.classList.remove("hidden");
     if (annotationViewActions) {
       annotationViewActions.classList.remove("hidden");
-      annotationViewActions.classList.add("pdf-discussion");
+      annotationViewActions.classList.remove("pdf-discussion");
     }
     if (discussionPanel) discussionPanel.classList.remove("hidden");
     if (discussionEditBtn) discussionEditBtn.classList.add("hidden");
@@ -277,8 +278,7 @@ function updateAnnotationPanelMode() {
   if (!activeAnnotationId) {
     activeAnnotationViewOnly = false;
     if (annotationTabs) annotationTabs.classList.remove("hidden");
-    if (annotationViewTitle) annotationViewTitle.classList.add("hidden");
-    if (annotationViewHash) annotationViewHash.classList.add("hidden");
+    if (annotationViewHeader) annotationViewHeader.classList.add("hidden");
     if (annotationViewNote) annotationViewNote.classList.add("hidden");
     if (annotationViewActions) {
       annotationViewActions.classList.add("hidden");
@@ -300,8 +300,7 @@ function updateAnnotationPanelMode() {
   }
   if (activeAnnotationViewOnly) {
     if (annotationTabs) annotationTabs.classList.add("hidden");
-    if (annotationViewTitle) annotationViewTitle.classList.remove("hidden");
-    if (annotationViewHash) annotationViewHash.classList.remove("hidden");
+    if (annotationViewHeader) annotationViewHeader.classList.remove("hidden");
     if (annotationViewNote) annotationViewNote.classList.remove("hidden");
     if (annotationViewActions) {
       annotationViewActions.classList.remove("hidden");
@@ -316,10 +315,7 @@ function updateAnnotationPanelMode() {
       const stamp = formatTimestamp(ann?.createdAt);
       annotationViewTitle.textContent = stamp ? `${name}: ${stamp}` : `${name}:`;
     }
-    if (annotationViewHash) {
-      const ann = annotations.get(activeAnnotationId);
-      annotationViewHash.textContent = ann?.hash ? `${ann.hash}` : "";
-    }
+    if (annotationViewHeader) annotationViewHeader.classList.remove("hidden");
     if (annotationViewNote) {
       const ann = annotations.get(activeAnnotationId);
       const note = (ann?.note || "").trim();
@@ -340,12 +336,7 @@ function updateAnnotationPanelMode() {
     setActiveTab("notes");
   } else {
     if (annotationTabs) annotationTabs.classList.remove("hidden");
-    if (annotationViewTitle) annotationViewTitle.classList.add("hidden");
-    if (annotationViewHash) {
-      const ann = annotations.get(activeAnnotationId);
-      annotationViewHash.textContent = ann?.hash ? `${ann.hash}` : "";
-      annotationViewHash.classList.toggle("hidden", !ann?.hash);
-    }
+    if (annotationViewHeader) annotationViewHeader.classList.add("hidden");
     if (annotationViewNote) annotationViewNote.classList.add("hidden");
     if (annotationViewActions) {
       annotationViewActions.classList.add("hidden");
@@ -373,6 +364,18 @@ function updateAnnotationViewVotes(ann) {
   annotationViewUp.classList.toggle("active", ann?.userVote === 1);
   annotationViewDown.classList.toggle("active", ann?.userVote === -1);
   const disableVotes = !isAuthenticated || !ann?.server_id || ann?.isOwner;
+  annotationViewUp.disabled = disableVotes;
+  annotationViewDown.disabled = disableVotes;
+}
+
+function updatePdfCommentViewVotes(comment) {
+  if (!annotationViewUp || !annotationViewDown || !annotationViewScore) return;
+  const score = (comment?.upvotes || 0) - (comment?.downvotes || 0);
+  annotationViewScore.textContent = score;
+  annotationViewUp.classList.toggle("active", comment?.user_vote === 1);
+  annotationViewDown.classList.toggle("active", comment?.user_vote === -1);
+  const currentUserName = document.body.dataset.user || "";
+  const disableVotes = !isAuthenticated || (comment?.user === currentUserName);
   annotationViewUp.disabled = disableVotes;
   annotationViewDown.disabled = disableVotes;
 }
@@ -465,9 +468,7 @@ function activateAnnotation(id, { viewOnly = false } = {}) {
       annotationViewNote.classList.add("empty");
     }
   }
-  if (annotationViewHash && ann) {
-    annotationViewHash.textContent = ann.hash ? `${ann.hash}` : "";
-  }
+  if (annotationViewHeader) annotationViewHeader.classList.remove("hidden");
   if (activeAnnotationViewOnly) {
     updateAnnotationViewVotes(ann);
   }
@@ -476,6 +477,10 @@ function activateAnnotation(id, { viewOnly = false } = {}) {
   setActiveTab("notes");
   if (activeAnnotationViewOnly) {
     loadDiscussionForAnnotation(ann?.server_id);
+    if (currentPdfKey && ann?.hash && !window.DEBUG_MODE) {
+      const slug = currentPdfKey.replace(/\.pdf$/i, "");
+      history.replaceState(null, "", `/${slug}/${ann.hash}`);
+    }
   }
 }
 
@@ -484,6 +489,10 @@ function clearActiveAnnotation() {
   activeAnnotationViewOnly = false;
   activePdfDiscussion = false;
   activePdfCommentId = null;
+  if (currentPdfKey && !window.DEBUG_MODE) {
+    const slug = currentPdfKey.replace(/\.pdf$/i, "");
+    history.replaceState(null, "", `/${slug}`);
+  }
   if (discussionList) discussionList.innerHTML = "";
   ensureAnnotationMode();
 }
@@ -814,6 +823,21 @@ function renderNotesList() {
     annotationSort.classList.remove("hidden");
   }
 
+  if (initialTargetHash) {
+    const hashToOpen = initialTargetHash;
+    initialTargetHash = "";
+    const targetComment = pdfComments.find((c) => c.hash === hashToOpen);
+    if (targetComment) {
+      openPdfCommentDiscussion(targetComment);
+      return;
+    }
+    const targetAnnotation = Array.from(annotations.values()).find((ann) => ann.hash === hashToOpen);
+    if (targetAnnotation) {
+      activateAnnotation(targetAnnotation.id, { viewOnly: true });
+      return;
+    }
+  }
+
   const currentUserName = document.body.dataset.user || "";
   const combined = [];
   items.forEach((ann) => {
@@ -860,12 +884,7 @@ function renderNotesList() {
       wrapper.dataset.commentId = comment.id;
       wrapper.addEventListener("click", () => {
         if (activePdfDiscussion && activePdfCommentId === comment.id) return;
-        activePdfDiscussion = true;
-        activePdfCommentId = comment.id;
-        activeAnnotationId = null;
-        activeAnnotationViewOnly = false;
-        ensureAnnotationMode();
-        loadPdfCommentReplies(comment.id);
+        openPdfCommentDiscussion(comment);
       });
       const meta = document.createElement("div");
       meta.className = "annotation-note-meta";
@@ -1236,6 +1255,21 @@ function updatePdfCommentView() {
   annotationViewTitle.textContent = stamp ? `${author}: ${stamp}` : `${author}:`;
   annotationViewNote.innerHTML = linkify(comment.body || "");
   annotationViewNote.classList.remove("empty");
+  updatePdfCommentViewVotes(comment);
+}
+
+function openPdfCommentDiscussion(comment) {
+  if (!comment) return;
+  activePdfDiscussion = true;
+  activePdfCommentId = comment.id;
+  activeAnnotationId = null;
+  activeAnnotationViewOnly = false;
+  if (currentPdfKey && comment.hash && !window.DEBUG_MODE) {
+    const slug = currentPdfKey.replace(/\.pdf$/i, "");
+    history.replaceState(null, "", `/${slug}/${comment.hash}`);
+  }
+  ensureAnnotationMode();
+  loadPdfCommentReplies(comment.id);
 }
 
 function renderPdfCommentDiscussion(commentId, replies) {
@@ -3478,6 +3512,18 @@ if (annotationViewBack) {
 if (annotationViewUp) {
   annotationViewUp.addEventListener("click", async (evt) => {
     evt.stopPropagation();
+    if (activePdfDiscussion && activePdfCommentId) {
+      const comment = pdfComments.find((c) => c.id === activePdfCommentId);
+      if (!comment) return;
+      const result = await sendPdfCommentVote(comment.id, 1);
+      if (!result) return;
+      comment.upvotes = result.upvotes;
+      comment.downvotes = result.downvotes;
+      comment.user_vote = result.user_vote || 0;
+      updatePdfCommentViewVotes(comment);
+      updatePdfCommentCardVote(comment);
+      return;
+    }
     if (!activeAnnotationId) return;
     const ann = annotations.get(activeAnnotationId);
     if (!ann || ann.isOwner || !ann.server_id) return;
@@ -3494,6 +3540,18 @@ if (annotationViewUp) {
 if (annotationViewDown) {
   annotationViewDown.addEventListener("click", async (evt) => {
     evt.stopPropagation();
+    if (activePdfDiscussion && activePdfCommentId) {
+      const comment = pdfComments.find((c) => c.id === activePdfCommentId);
+      if (!comment) return;
+      const result = await sendPdfCommentVote(comment.id, -1);
+      if (!result) return;
+      comment.upvotes = result.upvotes;
+      comment.downvotes = result.downvotes;
+      comment.user_vote = result.user_vote || 0;
+      updatePdfCommentViewVotes(comment);
+      updatePdfCommentCardVote(comment);
+      return;
+    }
     if (!activeAnnotationId) return;
     const ann = annotations.get(activeAnnotationId);
     if (!ann || ann.isOwner || !ann.server_id) return;
@@ -3504,6 +3562,28 @@ if (annotationViewDown) {
     ann.userVote = result.user_vote || 0;
     updateAnnotationViewVotes(ann);
     updateAnnotationCardVote(ann);
+  });
+}
+
+if (annotationViewCopy) {
+  annotationViewCopy.addEventListener("click", async () => {
+    if (!currentPdfKey) return;
+    const slug = currentPdfKey.replace(/\.pdf$/i, "");
+    let hash = "";
+    if (activePdfDiscussion && activePdfCommentId) {
+      const comment = pdfComments.find((c) => c.id === activePdfCommentId);
+      hash = comment?.hash || "";
+    } else if (activeAnnotationId) {
+      const ann = annotations.get(activeAnnotationId);
+      hash = ann?.hash || "";
+    }
+    if (!hash) return;
+    const url = `${window.location.origin}/${slug}/${hash}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (err) {
+      console.error(err);
+    }
   });
 }
 
@@ -3652,7 +3732,8 @@ if (window.DEBUG_MODE) {
   searchInput.value = DEBUG_PDF_NAME;
   searchPdf();
 } else {
-  const slug = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  const slugPath = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  const slug = slugPath.split("/")[0] || "";
   if (slug) {
     searchInput.value = slug;
     searchPdf();
