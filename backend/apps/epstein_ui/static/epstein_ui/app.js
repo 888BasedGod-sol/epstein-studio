@@ -601,8 +601,6 @@ function clearHoveredAnchor(id) {
   if (!activeAnnotationId && !activeAnnotationViewOnly) {
     setAnnotationElementsVisible(targetId, false);
   }
-  const header = annotationNotes?.querySelector(".annotation-selected-title");
-  if (header) header.remove();
   hoveredAnchorId = null;
   renderNotesList();
 }
@@ -633,6 +631,13 @@ function ensureAnnotationAnchor(id) {
     anchor.dataset.bound = "1";
     anchor.addEventListener("mouseenter", () => {
       hoveredAnchorId = id;
+      if (annotationNotes) {
+        annotationNotes.querySelectorAll(".annotation-note").forEach((note) => {
+          if (note.dataset.annotation !== id) {
+            note.classList.add("hidden");
+          }
+        });
+      }
       const card = annotationNotes?.querySelector(`.annotation-note[data-annotation="${id}"]`);
       if (card) card.classList.add("hovered");
       hintLayer.appendChild(anchor);
@@ -642,22 +647,18 @@ function ensureAnnotationAnchor(id) {
         showAnnotationPreview(id);
       }
       if (annotationNotes) {
-        let header = annotationNotes.querySelector(".annotation-selected-title");
-        if (!header) {
-          header = document.createElement("div");
-          header.className = "annotation-section-title annotation-selected-title";
-          header.textContent = "Selected Annotation";
-        }
         const card = annotationNotes.querySelector(`.annotation-note[data-annotation="${id}"]`);
         if (card) {
           annotationNotes.prepend(card);
-          annotationNotes.insertBefore(header, card);
-        } else {
-          annotationNotes.prepend(header);
         }
       }
     });
     anchor.addEventListener("mouseleave", () => {
+      if (annotationNotes) {
+        annotationNotes.querySelectorAll(".annotation-note.hidden").forEach((note) => {
+          note.classList.remove("hidden");
+        });
+      }
       clearHoveredAnchor(id);
     });
   }
