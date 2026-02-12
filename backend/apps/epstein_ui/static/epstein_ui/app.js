@@ -932,7 +932,7 @@ function renderNotesList() {
       const stamp = formatTimestamp(comment.created_at, { dateOnly: true });
       const isMine = currentUserName && comment.user === currentUserName;
       const author = isMine ? "By you" : comment.user ? `By ${comment.user}` : "By Unknown";
-      meta.textContent = isMine ? "By you" : stamp ? `${author} • ${stamp}` : author;
+      meta.textContent = isMine ? (stamp ? `By you • ${stamp}` : "By you") : stamp ? `${author} • ${stamp}` : author;
       if (isMine) {
         meta.classList.add("by-you");
       }
@@ -1013,7 +1013,7 @@ function renderNotesList() {
     meta.className = "annotation-note-meta";
     const stamp = formatTimestamp(ann.createdAt, { dateOnly: true });
     if (ann.isOwner) {
-      meta.textContent = "By you";
+      meta.textContent = stamp ? `By you • ${stamp}` : "By you";
       meta.classList.add("by-you");
     } else {
       const author = ann.user ? `By ${ann.user}` : "By Unknown";
@@ -1160,17 +1160,21 @@ function renderDiscussion(annotationId, comments) {
       item.classList.add("reply-highlight");
     }
     const currentUserName = document.body.dataset.user || "";
-    if (comment.user === currentUserName) {
-      item.classList.add("comment-own");
-    }
     if (depth > 0) {
       item.style.marginLeft = `${Math.min(depth, 6) * 18}px`;
     }
     const meta = document.createElement("div");
     meta.className = "comment-meta";
     const stamp = formatTimestamp(comment.created_at);
-    const author = comment.user === currentUserName ? "You" : comment.user;
-    meta.textContent = stamp ? `${author} • ${stamp}` : author;
+    const isMine = comment.user === currentUserName;
+    const author = isMine ? "You" : comment.user;
+    if (stamp) {
+      meta.innerHTML = isMine
+        ? `<span class="by-you">You</span> • ${stamp}`
+        : `${author} • ${stamp}`;
+    } else {
+      meta.innerHTML = isMine ? `<span class="by-you">You</span>` : author;
+    }
     const body = document.createElement("div");
     body.className = "comment-body";
     body.textContent = comment.body;
@@ -1333,17 +1337,21 @@ function renderPdfCommentDiscussion(commentId, replies) {
       item.classList.add("reply-highlight");
     }
     const currentUserName = document.body.dataset.user || "";
-    if (comment.user === currentUserName) {
-      item.classList.add("comment-own");
-    }
     if (depth > 0) {
       item.style.marginLeft = `${Math.min(depth, 6) * 18}px`;
     }
     const meta = document.createElement("div");
     meta.className = "comment-meta";
     const stamp = formatTimestamp(comment.created_at);
-    const author = comment.user === currentUserName ? "You" : comment.user;
-    meta.textContent = stamp ? `${author} • ${stamp}` : author;
+    const isMine = comment.user === currentUserName;
+    const author = isMine ? "You" : comment.user;
+    if (stamp) {
+      meta.innerHTML = isMine
+        ? `<span class="by-you">You</span> • ${stamp}`
+        : `${author} • ${stamp}`;
+    } else {
+      meta.innerHTML = isMine ? `<span class="by-you">You</span>` : author;
+    }
     const body = document.createElement("div");
     body.className = "comment-body";
     body.textContent = comment.body;

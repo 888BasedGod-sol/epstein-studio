@@ -214,10 +214,6 @@ body {
   padding: 8px 10px;
 }
 
-.comment.comment-own {
-  border-color: rgba(57, 255, 20, 0.6);
-  box-shadow: inset 0 0 0 1px rgba(30, 120, 20, 0.25);
-}
 
 .comment.reply-highlight {
   border-color: #39ff14;
@@ -530,7 +526,9 @@ body {
   color: var(--muted);
 }
 
-.annotation-note-meta.by-you {
+.annotation-note-meta.by-you,
+.comment-meta.by-you,
+.comment-meta .by-you {
   color: #ff9f1a;
 }
 
