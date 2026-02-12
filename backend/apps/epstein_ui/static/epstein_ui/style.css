@@ -387,7 +387,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 0;
   flex: 1;
   min-height: 0;
   max-height: none;
@@ -531,7 +531,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--muted);
-  margin: 6px 0 2px;
+  margin: 14px 0 2px;
 }
 
 .annotation-selected-title.hidden {
