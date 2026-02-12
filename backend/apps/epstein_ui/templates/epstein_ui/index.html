@@ -47,6 +47,9 @@
 
       <main class="layout">
         <section class="panel annotation-panel">
+          {% if not user.is_authenticated %}
+            <div class="hint">Create unique anonymous ID to participate</div>
+          {% endif %}
           <div class="annotation-actions">
             <button id="createAnnotationBtn" class="btn">Create Annotation</button>
           </div>
@@ -54,7 +57,7 @@
             Click on the canvas to place a new annotation.
           </div>
           <div id="pdfCommentForm" class="pdf-comment-form">
-            <textarea id="pdfCommentInput" rows="3" placeholder="Add a comment about this PDF..."></textarea>
+            <textarea id="pdfCommentInput" rows="3" placeholder="Add a comment..."></textarea>
             <button id="pdfCommentSubmit" class="btn btn-secondary" type="button">Post Comment</button>
             <div id="pdfCommentLoginHint" class="discussion-hint hidden">Login to comment.</div>
           </div>
