@@ -4,13 +4,13 @@ const sortSelect = document.getElementById("browseSort");
 const notificationDots = document.querySelectorAll(".notif-dot");
 const randomBtn = document.getElementById("browseRandom");
 const searchInput = document.getElementById("browseSearch");
+const searchBtn = document.getElementById("browseSearchBtn");
 
 let page = 1;
 let loading = false;
 let hasMore = true;
 let currentSort = sortSelect ? sortSelect.value : "name";
 let currentQuery = "";
-let searchTimer = null;
 
 function setLoading(state) {
   loading = state;
@@ -115,17 +115,22 @@ if (randomBtn) {
   });
 }
 
+function triggerSearch() {
+  currentQuery = searchInput ? searchInput.value.trim() : "";
+  page = 1;
+  hasMore = true;
+  list.innerHTML = "";
+  if (moreBtn) moreBtn.classList.remove("hidden");
+  loadPage();
+}
+
+if (searchBtn) {
+  searchBtn.addEventListener("click", triggerSearch);
+}
+
 if (searchInput) {
-  searchInput.addEventListener("input", () => {
-    if (searchTimer) window.clearTimeout(searchTimer);
-    searchTimer = window.setTimeout(() => {
-      currentQuery = searchInput.value.trim();
-      page = 1;
-      hasMore = true;
-      list.innerHTML = "";
-      if (moreBtn) moreBtn.classList.remove("hidden");
-      loadPage();
-    }, 200);
+  searchInput.addEventListener("keydown", (evt) => {
+    if (evt.key === "Enter") triggerSearch();
   });
 }
 

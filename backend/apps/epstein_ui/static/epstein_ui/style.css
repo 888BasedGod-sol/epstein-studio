@@ -1144,6 +1144,11 @@ body {
   min-width: 180px;
 }
 
+.browse-search-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
 .toggle-row {
   display: flex;
   gap: 8px;
