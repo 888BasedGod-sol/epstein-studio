@@ -385,10 +385,12 @@ body {
 
 .discussion-actions {
   margin-top: auto;
+  display: flex;
+  gap: 10px;
 }
 
-#discussionEditBtn {
-  width: 100%;
+.discussion-actions .btn {
+  flex: 1;
 }
 
 .annotation-panel {
@@ -1005,6 +1007,11 @@ body {
   background: transparent;
   color: var(--accent);
   border: 1px solid var(--accent);
+}
+
+.btn-outline-danger {
+  color: #ef4444;
+  border-color: #ef4444;
 }
 
 .account-menu {

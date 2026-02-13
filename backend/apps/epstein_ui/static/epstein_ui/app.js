@@ -72,6 +72,7 @@ const discussionInput = document.getElementById("discussionInput");
 const discussionSubmit = document.getElementById("discussionSubmit");
 const discussionLoginHint = document.getElementById("discussionLoginHint");
 const discussionEditBtn = document.getElementById("discussionEditBtn");
+const discussionDeleteBtn = document.getElementById("discussionDeleteBtn");
 const isAuthenticated = document.body.dataset.auth === "1";
 const initialReplyId = new URLSearchParams(window.location.search).get("reply");
 const notificationDots = document.querySelectorAll(".notif-dot");
@@ -1589,6 +1590,10 @@ async function loadDiscussionForAnnotation(annotationId) {
   if (discussionEditBtn) {
     const ann = annotations.get(activeAnnotationId);
     discussionEditBtn.classList.toggle("hidden", !(ann && ann.isOwner && isAuthenticated));
+  }
+  if (discussionDeleteBtn) {
+    const ann = annotations.get(activeAnnotationId);
+    discussionDeleteBtn.classList.toggle("hidden", !(ann && ann.isOwner && isAuthenticated));
   }
   if (commentCache.has(annotationId)) {
     renderDiscussion(annotationId, commentCache.get(annotationId));
@@ -3907,6 +3912,14 @@ if (discussionEditBtn) {
     const ann = annotations.get(activeAnnotationId);
     if (!ann || !ann.isOwner || !isAuthenticated) return;
     activateAnnotation(activeAnnotationId, { viewOnly: false });
+  });
+}
+
+if (discussionDeleteBtn) {
+  discussionDeleteBtn.addEventListener("click", () => {
+    const ann = annotations.get(activeAnnotationId);
+    if (!ann || !ann.isOwner || !isAuthenticated) return;
+    removeAnnotationById(activeAnnotationId);
   });
 }
 
