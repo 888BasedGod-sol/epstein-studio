@@ -449,7 +449,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            return redirect("index")
+            return redirect("start")
     else:
         form = UserCreationForm()
     suggested_id = None
@@ -475,7 +475,7 @@ def register(request):
 def logout_view(request):
     """Logout helper that redirects back to the index."""
     logout(request)
-    return redirect("index")
+    return redirect("start")
 
 
 def username_check(request):
