@@ -604,6 +604,7 @@ def annotations_api(request):
         delete_qs.delete()
         PdfDocument.objects.filter(filename=pdf_key).update(
             annotation_count=Annotation.objects.filter(pdf_key=pdf_key).count()
+            + PdfComment.objects.filter(pdf__filename=pdf_key).count()
         )
         return JsonResponse({"ok": True, "mappings": saved_mappings})
 

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Sum
 
-from apps.epstein_ui.models import Annotation, PdfDocument, PdfVote
+from apps.epstein_ui.models import Annotation, PdfComment, PdfDocument, PdfVote
 from apps.epstein_ui.views import _sync_pdf_index
 
 
@@ -16,6 +16,8 @@ class Command(BaseCommand):
         self.stdout.write("Refreshing annotation counts...")
         ann_rows = Annotation.objects.values("pdf_key").annotate(total=Count("id"))
         ann_map = {row["pdf_key"]: row["total"] for row in ann_rows}
+        comment_rows = PdfComment.objects.values("pdf__filename").annotate(total=Count("id"))
+        comment_map = {row["pdf__filename"]: row["total"] for row in comment_rows}
 
         self.stdout.write("Refreshing vote scores...")
         vote_rows = PdfVote.objects.values("pdf_id").annotate(score=Sum("value"))
@@ -23,7 +25,7 @@ class Command(BaseCommand):
 
         for doc in PdfDocument.objects.all():
             PdfDocument.objects.filter(id=doc.id).update(
-                annotation_count=ann_map.get(doc.filename, 0),
+                annotation_count=ann_map.get(doc.filename, 0) + comment_map.get(doc.filename, 0),
                 vote_score=vote_map.get(doc.id, 0),
             )
 
