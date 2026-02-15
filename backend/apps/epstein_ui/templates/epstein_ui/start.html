@@ -16,9 +16,7 @@
           <div class="topbar-actions">
             <a class="btn btn-secondary" href="/about/">About</a>
             <a class="btn btn-secondary" href="/browse/">Browse</a>
-            {% if request.user.is_authenticated %}
-              <a class="btn" href="/browse/">Open Viewer</a>
-            {% else %}
+            {% if not request.user.is_authenticated %}
               <a class="btn" href="/login/">Participate</a>
             {% endif %}
           </div>
