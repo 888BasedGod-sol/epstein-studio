@@ -1206,6 +1206,13 @@ body {
   gap: 16px;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -1218,6 +1225,17 @@ body {
   letter-spacing: -0.02em;
   color: var(--text);
   text-decoration: none;
+}
+
+.construction-hint {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #c4cbd0;
+  background: #242a2f;
+  border: 1px solid #3a4349;
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 560px;
 }
 
 .meta {
