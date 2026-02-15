@@ -6,6 +6,11 @@ const randomBtn = document.getElementById("browseRandom");
 const searchInput = document.getElementById("browseSearch");
 const searchBtn = document.getElementById("browseSearchBtn");
 const browseCount = document.getElementById("browseCount");
+const staticUiBase = window.STATIC_EPSTEIN_UI_BASE || "/static/epstein_ui/";
+
+function uiIconPath(filename) {
+  return `${staticUiBase}icons/${filename}`;
+}
 
 let page = 1;
 let loading = false;
@@ -32,7 +37,7 @@ function appendCard(item) {
   const voteWrap = document.createElement("span");
   voteWrap.className = "browse-meta-item";
   const voteIcon = document.createElement("img");
-  voteIcon.src = "/static/epstein_ui/icons/thumbs-up.svg";
+  voteIcon.src = uiIconPath("thumbs-up.svg");
   voteIcon.alt = "";
   const voteCount = document.createElement("span");
   voteCount.textContent = item.upvotes ?? 0;
@@ -42,7 +47,7 @@ function appendCard(item) {
   const annWrap = document.createElement("span");
   annWrap.className = "browse-meta-item";
   const annIcon = document.createElement("img");
-  annIcon.src = "/static/epstein_ui/icons/pencil.svg";
+  annIcon.src = uiIconPath("pencil.svg");
   annIcon.alt = "";
   const annCount = document.createElement("span");
   annCount.textContent = item.annotations ?? 0;

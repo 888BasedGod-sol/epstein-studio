@@ -94,7 +94,7 @@
                 <div id="annotationViewTitle" class="annotation-view-title"></div>
                 <div id="annotationViewMeta" class="annotation-view-meta">
                   <button id="annotationViewCopy" class="copy-link-btn" type="button" title="Copy link">
-                    <img src="/static/epstein_ui/icons/link.svg" alt="Copy link" />
+                    <img src="{% static 'epstein_ui/icons/link.svg' %}" alt="Copy link" />
                   </button>
                 </div>
               </div>
@@ -102,10 +102,10 @@
               <div id="annotationViewActions" class="annotation-view-actions hidden">
                 <div class="annotation-view-votes">
                   <button id="annotationViewUp" class="vote-btn up" type="button">
-                    <img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />
+                    <img class="vote-icon" src="{% static 'epstein_ui/icons/arrow-big-up.svg' %}" alt="" />
                   </button>
                   <button id="annotationViewDown" class="vote-btn down" type="button">
-                    <img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />
+                    <img class="vote-icon" src="{% static 'epstein_ui/icons/arrow-big-down.svg' %}" alt="" />
                   </button>
                   <span id="annotationViewScore" class="vote-score">0</span>
                 </div>
@@ -259,6 +259,9 @@
     </div>
     <a class="coffee-link" href="https://buymeacoffee.com/artischocki" target="_blank" rel="noopener">Support this project</a>
 
+    <script>
+      window.STATIC_EPSTEIN_UI_BASE = "{% static 'epstein_ui/' %}";
+    </script>
     <script src="{% static 'epstein_ui/app.js' %}?v=2"></script>
   </body>
 </html>

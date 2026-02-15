@@ -79,6 +79,11 @@ const isAuthenticated = document.body.dataset.auth === "1";
 const initialReplyId = new URLSearchParams(window.location.search).get("reply");
 const notificationDots = document.querySelectorAll(".notif-dot");
 
+const staticUiBase = window.STATIC_EPSTEIN_UI_BASE || "/static/epstein_ui/";
+function uiIconPath(filename) {
+  return `${staticUiBase}icons/${filename}`;
+}
+
 function normalizeFontValue(value) {
   if (!value) return "";
   const first = value.split(",")[0] || "";
@@ -1060,7 +1065,7 @@ function renderNotesList() {
 
       const upBtn = document.createElement("button");
       upBtn.className = "vote-btn up";
-      upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+      upBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-up.svg")}" alt="" />`;
       if (comment.user_vote === 1) {
         upBtn.classList.add("active");
       }
@@ -1069,7 +1074,7 @@ function renderNotesList() {
 
       const downBtn = document.createElement("button");
       downBtn.className = "vote-btn down";
-      downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+      downBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-down.svg")}" alt="" />`;
       if (comment.user_vote === -1) {
         downBtn.classList.add("active");
       }
@@ -1148,7 +1153,7 @@ function renderNotesList() {
 
     const upBtn = document.createElement("button");
     upBtn.className = "vote-btn up";
-    upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+    upBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-up.svg")}" alt="" />`;
     if (ann.userVote === 1) {
       upBtn.classList.add("active");
     }
@@ -1156,7 +1161,7 @@ function renderNotesList() {
 
     const downBtn = document.createElement("button");
     downBtn.className = "vote-btn down";
-    downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+    downBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-down.svg")}" alt="" />`;
     if (ann.userVote === -1) {
       downBtn.classList.add("active");
     }
@@ -1292,7 +1297,7 @@ function renderDiscussion(annotationId, comments) {
     actions.className = "comment-actions";
     const upBtn = document.createElement("button");
     upBtn.className = "vote-btn up";
-    upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+    upBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-up.svg")}" alt="" />`;
     if (comment.user_vote === 1) upBtn.classList.add("active");
     const commentOwner = comment.user === currentUserName;
     upBtn.disabled = !isAuthenticated || commentOwner;
@@ -1308,7 +1313,7 @@ function renderDiscussion(annotationId, comments) {
 
     const downBtn = document.createElement("button");
     downBtn.className = "vote-btn down";
-    downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+    downBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-down.svg")}" alt="" />`;
     if (comment.user_vote === -1) downBtn.classList.add("active");
     downBtn.disabled = !isAuthenticated || commentOwner;
     downBtn.addEventListener("click", async (evt) => {
@@ -1473,7 +1478,7 @@ function renderPdfCommentDiscussion(commentId, replies) {
     actions.className = "comment-actions";
     const upBtn = document.createElement("button");
     upBtn.className = "vote-btn up";
-    upBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-up.svg" alt="" />`;
+    upBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-up.svg")}" alt="" />`;
     if (comment.user_vote === 1) upBtn.classList.add("active");
     const commentOwner = comment.user === currentUserName;
     upBtn.disabled = !isAuthenticated || commentOwner;
@@ -1489,7 +1494,7 @@ function renderPdfCommentDiscussion(commentId, replies) {
 
     const downBtn = document.createElement("button");
     downBtn.className = "vote-btn down";
-    downBtn.innerHTML = `<img class="vote-icon" src="/static/epstein_ui/icons/arrow-big-down.svg" alt="" />`;
+    downBtn.innerHTML = `<img class="vote-icon" src="${uiIconPath("arrow-big-down.svg")}" alt="" />`;
     if (comment.user_vote === -1) downBtn.classList.add("active");
     downBtn.disabled = !isAuthenticated || commentOwner;
     downBtn.addEventListener("click", async (evt) => {
