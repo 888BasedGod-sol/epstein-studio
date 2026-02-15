@@ -92,6 +92,35 @@
           </section>
 
           <section class="about-section">
+            <h2 class="about-heading">Request a feature</h2>
+            <p class="about-body">
+              Got an idea for how to make this tool better? Submit it below and it will be
+              tracked as a GitHub issue.
+            </p>
+            <form id="featureForm" class="feature-form">
+              <input
+                id="featureTitle"
+                type="text"
+                class="feature-input"
+                placeholder="Short title for your request"
+                maxlength="120"
+                required
+              />
+              <textarea
+                id="featureDesc"
+                class="feature-textarea"
+                placeholder="Describe the feature or improvement (optional)"
+                rows="4"
+                maxlength="2000"
+              ></textarea>
+              <div class="feature-form-footer">
+                <button id="featureSubmit" class="btn" type="submit">Submit Feature Request</button>
+                <span id="featureStatus" class="feature-status"></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="about-section">
             <h2 class="about-heading">Contribute</h2>
             <div class="about-contrib-grid">
               <div class="about-contrib-card">
@@ -110,5 +139,54 @@
         </div>
       </main>
     </div>
+
+    <script>
+      const form = document.getElementById("featureForm");
+      const titleInput = document.getElementById("featureTitle");
+      const descInput = document.getElementById("featureDesc");
+      const submitBtn = document.getElementById("featureSubmit");
+      const status = document.getElementById("featureStatus");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const title = titleInput.value.trim();
+        if (!title) return;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+        status.textContent = "";
+        status.className = "feature-status";
+
+        try {
+          const resp = await fetch("/feature-request/", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              title: title,
+              description: descInput.value.trim(),
+            }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data.ok) {
+            status.textContent = "Submitted!";
+            status.classList.add("feature-status-ok");
+            if (data.issue_url) {
+              status.innerHTML = 'Submitted! <a href="' + data.issue_url + '" target="_blank" rel="noopener">View on GitHub</a>';
+            }
+            titleInput.value = "";
+            descInput.value = "";
+          } else {
+            status.textContent = data.error || "Something went wrong";
+            status.classList.add("feature-status-err");
+          }
+        } catch (err) {
+          status.textContent = "Network error, try again";
+          status.classList.add("feature-status-err");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Feature Request";
+        }
+      });
+    </script>
   </body>
 </html>
