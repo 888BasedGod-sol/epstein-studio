@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Epstein Studio</title>
     <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
-    <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
   </head>
   <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}" data-target-hash="{% if target_hash %}{{ target_hash }}{% endif %}">
     <div class="page">
@@ -28,7 +31,6 @@
         <div class="topbar-row">
           <div class="topbar-left">
             <a href="/" class="brand">Epstein Studio</a>
-            <div class="construction-hint">Beta! This site is currently under construction... If something looks wrong: hard refresh (Ctrl + Shift + R).</div>
           </div>
           <div class="topbar-actions">
             {% if user.is_authenticated %}
@@ -52,7 +54,7 @@
               </details>
             {% else %}
               <a class="btn btn-secondary" href="/about/">About</a>
-              <a class="btn" href="/login/">Participate</a>
+              <a class="btn" href="/login/">Get Started</a>
             {% endif %}
           </div>
         </div>
@@ -177,7 +179,7 @@
                 <button id="colorSwatch" class="btn btn-secondary" type="button" aria-label="Pick color">
                   <span class="swatch-letter">A</span>
                 </button>
-                <input id="colorPicker" type="color" value="#39ff14" />
+                <input id="colorPicker" type="color" value="#2563eb" />
               </div>
               <label class="field">
                 <span>Opacity</span>

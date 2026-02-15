@@ -6,16 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Epstein Studio</title>
     <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
-    <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}?v=2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
   </head>
   <body>
-    <div class="page">
-      <main class="layout" style="grid-template-columns: 1fr;">
-        <section style="max-width: 540px; margin: 12vh auto 0; text-align: center;">
-          <div class="mobile-block-message">
-            This website is not optimized for mobile usage. Please use a non-mobile device to access this website.
-          </div>
-        </section>
+    <div class="page login-layout">
+      <main class="login-container">
+        <div class="login-card" style="text-align: center;">
+          <h1 style="font-size: 1.5rem; margin-bottom: 16px;">Desktop Required</h1>
+          <p class="mobile-block-message" style="color: var(--text-secondary);">
+            This website is optimized for desktop use. Please access it from a computer for the best experience.
+          </p>
+          <a href="/" class="btn" style="margin-top: 24px;">Try Anyway</a>
+        </div>
       </main>
     </div>
   </body>

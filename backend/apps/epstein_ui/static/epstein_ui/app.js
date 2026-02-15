@@ -2077,7 +2077,7 @@ function setActiveGroup(group) {
     ligatureToggle.classList.toggle("active", ligatureOn);
     ligatureToggle.textContent = ligatureOn ? "On" : "Off";
   }
-  colorPicker.value = rgbToHex(computed.color || "#39ff14");
+  colorPicker.value = rgbToHex(computed.color || "#2563eb");
   if (colorSwatch) {
     const swatch = colorSwatch.querySelector(".swatch-letter");
     if (swatch) swatch.style.color = colorPicker.value;
@@ -2232,7 +2232,7 @@ function hideConfirm() {
 function rgbToHex(color) {
   if (color.startsWith("#")) return color;
   const match = color.match(/\d+/g);
-  if (!match || match.length < 3) return "#39ff14";
+  if (!match || match.length < 3) return "#2563eb";
   const [r, g, b] = match.map((v) => parseInt(v, 10));
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
@@ -2661,7 +2661,7 @@ function attachArrowMarker(line, start, end) {
   marker.setAttribute("orient", "auto");
   const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
   polygon.setAttribute("points", `${size} ${size * 0.35}, 0 0, 0 ${size * 0.7}`);
-  polygon.setAttribute("fill", "#ff2d2d");
+  polygon.setAttribute("fill", "#ef4444");
   marker.appendChild(polygon);
   defs.appendChild(marker);
   line.setAttribute("x2", tipX);

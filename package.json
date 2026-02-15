@@ -1,0 +1,26 @@
+{
+  "name": "epstein-studio",
+  "version": "1.0.0",
+  "description": "A collaborative workspace for annotating, discussing, and investigating redacted PDF documents. Built for the crowd-sourced effort to dig through the Epstein files.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artischocki/epstein-studio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/artischocki/epstein-studio/issues"
+  },
+  "homepage": "https://github.com/artischocki/epstein-studio#readme",
+  "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
+  }
+}

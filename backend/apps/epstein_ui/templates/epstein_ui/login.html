@@ -4,41 +4,79 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Epstein Studio Login</title>
-    <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
+    <title>Sign In - Epstein Studio</title>
+    <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
   </head>
   <body>
-    <div class="page">
+    <div class="page login-layout">
       <header class="topbar">
-        <a href="/" class="brand">Epstein Studio</a>
+        <div class="topbar-row">
+          <div class="topbar-left">
+            <a href="/" class="brand">Epstein Studio</a>
+          </div>
+          <div class="topbar-actions">
+            <a class="btn btn-secondary" href="/about/">About</a>
+            <a class="btn btn-secondary" href="/browse/">Browse</a>
+          </div>
+        </div>
       </header>
-      <main class="layout" style="grid-template-columns: 1fr;">
-        <section style="max-width: 420px; margin: 8vh auto 0;">
-          <div class="tab-panel active" style="display: flex;">
-            <div class="hint">Sign in with your ID and password.</div>
+      
+      <main class="auth-layout">
+        <div class="auth-sidebar">
+          <div class="auth-sidebar-content">
+            <h2 class="auth-sidebar-title">Join the Investigation</h2>
+            <p class="auth-sidebar-text">Help uncover the truth by annotating and discussing thousands of court documents.</p>
+            <div class="auth-sidebar-stats">
+              <div class="auth-sidebar-stat">
+                <span class="auth-sidebar-stat-value">2,000+</span>
+                <span class="auth-sidebar-stat-label">Documents</span>
+              </div>
+              <div class="auth-sidebar-stat">
+                <span class="auth-sidebar-stat-value">Open</span>
+                <span class="auth-sidebar-stat-label">Source</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="auth-main">
+          <div class="login-card">
+            <div class="login-header">
+              <h1>Welcome Back</h1>
+              <p>Sign in to continue annotating documents.</p>
+            </div>
+            
             {% if form.errors %}
-              <div class="hint" style="color: #ff6b6b;">Invalid username or password.</div>
+              <div class="login-error">Invalid username or password.</div>
             {% endif %}
-            <form method="post" style="display: flex; flex-direction: column; gap: 16px;">
+            
+            <form method="post" class="login-form">
               {% csrf_token %}
               {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
               <label class="field">
-                <span>ID</span>
+                <span>Username</span>
                 <input type="text" name="username" autocomplete="username" required autofocus />
               </label>
               <label class="field">
                 <span>Password</span>
                 <input type="password" name="password" autocomplete="current-password" required />
               </label>
-              <button type="submit" class="btn">Log In</button>
+              <button type="submit" class="btn btn-lg" style="width: 100%;">Sign In</button>
             </form>
-            <div class="hint">First time? <a href="/register/">Create anonymous ID</a></div>
-            <div class="hint" style="margin-top: 12px;">
-              This site does not store any personal information. The ID is only for editing and managing your annotations and for discussions. We do not ask for personal information and we do not log anything.
-              <a href="https://github.com/artischocki/epstein-studio" target="_blank" rel="noreferrer">Repository</a>
+            
+            <div class="login-footer">
+              <p>First time here? <a href="/register/">Create an anonymous account</a></p>
+            </div>
+            
+            <div class="login-privacy">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>This site does not collect personal information. Your ID is only used for managing annotations and discussions.</span>
             </div>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   </body>

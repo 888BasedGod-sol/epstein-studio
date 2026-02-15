@@ -75,7 +75,7 @@ async function loadPage() {
     (data.items || []).forEach(appendCard);
     hasMore = Boolean(data.has_more);
     if (browseCount && typeof data.total === "number") {
-      browseCount.textContent = `(${data.total})`;
+      browseCount.textContent = `${data.total} document${data.total !== 1 ? 's' : ''}`;
     }
     page += 1;
     if (!hasMore && moreBtn) {

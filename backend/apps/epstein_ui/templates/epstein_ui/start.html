@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Epstein Studio</title>
     <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
-    <link rel="stylesheet" href="{% static 'epstein_ui/style.css' %}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
   </head>
   <body>
     <div class="page">
@@ -14,13 +17,26 @@
         <div class="topbar-row">
           <div class="topbar-left">
             <a href="/" class="brand">Epstein Studio</a>
-            <div class="construction-hint">Beta! This site is currently under construction... If something looks wrong: hard refresh (Ctrl + Shift + R).</div>
           </div>
           <div class="topbar-actions">
             <a class="btn btn-secondary" href="/about/">About</a>
             <a class="btn btn-secondary" href="/browse/">Browse</a>
             {% if not request.user.is_authenticated %}
-              <a class="btn" href="/login/">Participate</a>
+              <a class="btn" href="/login/">Get Started</a>
+            {% else %}
+              <details class="account-menu">
+                <summary class="account-button" aria-label="Account">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="7" r="4"></circle>
+                    <path d="M4 20c1.7-3.6 5-6 8-6s6.3 2.4 8 6"></path>
+                  </svg>
+                </summary>
+                <div class="account-dropdown">
+                  <div class="account-username">{{ request.user.username }}</div>
+                  <a class="account-link" href="/notifications/">Notifications</a>
+                  <a class="account-link" href="/logout/">Logout</a>
+                </div>
+              </details>
             {% endif %}
           </div>
         </div>
@@ -30,89 +46,183 @@
         <div class="start-content">
 
           <section class="start-hero">
-            <h1 class="start-title">The Epstein files,<br/>annotated by the crowd.</h1>
-            <p class="start-subtitle">
-              Browse, annotate, and discuss thousands of redacted court documents.
-              Together.
+            <h1 class="start-title animate-fade-in-up">The Epstein Files,<br/>Analyzed Together.</h1>
+            <p class="start-subtitle animate-fade-in-up animate-delay-1">
+              A collaborative platform for annotating, discussing, and investigating 
+              thousands of redacted court documents. Join the crowd-sourced effort.
             </p>
-            <div class="start-hero-actions">
+            <div class="start-hero-actions animate-fade-in-up animate-delay-2">
               <a class="btn" href="/browse/">Start Browsing</a>
               <a class="btn btn-outline" href="/about/">Learn More</a>
             </div>
           </section>
 
-          <section class="start-section">
-            <h2 class="start-heading">Progress</h2>
-            <div class="start-progress-wrap">
-              <div class="start-progress-bar">
-                <div class="start-progress-fill" style="width: {{ coverage_pct }}%"></div>
-              </div>
-              <div class="start-progress-label">
-                <span>{{ annotated_pdfs }} of {{ total_pdfs }} documents reviewed</span>
-                <span class="start-progress-pct">{{ coverage_pct }}%</span>
-              </div>
-            </div>
-            <div class="start-stats">
-              <div class="start-stat">
-                <span class="start-stat-value">{{ total_pdfs }}</span>
-                <span class="start-stat-label">Documents</span>
-              </div>
-              <div class="start-stat">
-                <span class="start-stat-value">{{ total_annotations }}</span>
-                <span class="start-stat-label">Annotations</span>
-              </div>
-              <div class="start-stat">
-                <span class="start-stat-value">{{ total_comments }}</span>
-                <span class="start-stat-label">Comments</span>
-              </div>
-              <div class="start-stat">
-                <span class="start-stat-value">{{ total_users }}</span>
-                <span class="start-stat-label">Contributors</span>
+          <section class="start-features">
+            <div class="start-features-inner">
+              <p class="start-features-title">How It Works</p>
+              <h2 class="start-features-heading">Collaborate on Document Analysis</h2>
+              <div class="start-features-grid">
+                <div class="feature-card">
+                  <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  </div>
+                  <h3>Browse Documents</h3>
+                  <p>Access thousands of court documents, depositions, and legal filings in one searchable archive.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </div>
+                  <h3>Annotate & Highlight</h3>
+                  <p>Mark important passages, redacted areas, and key evidence. Your annotations help others discover insights.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </div>
+                  <h3>Discuss & Vote</h3>
+                  <p>Comment on findings, debate interpretations, and vote on the most promising documents to investigate.</p>
+                </div>
               </div>
             </div>
           </section>
 
-          <section class="start-section">
-            <div class="start-lists">
-              <div class="start-list-col">
-                <h2 class="start-heading">Most Discussed</h2>
-                {% if most_discussed %}
-                  <ol class="start-ranked-list">
-                    {% for item in most_discussed %}
-                      <li>
-                        <a href="/{{ item.filename|cut:'.pdf' }}">
-                          <span class="start-ranked-name">{{ item.filename }}</span>
-                          <span class="start-ranked-stat">{{ item.discussion_count }} comment{{ item.discussion_count|pluralize }}</span>
-                        </a>
-                      </li>
-                    {% endfor %}
-                  </ol>
-                {% else %}
-                  <p class="start-empty">No discussions yet. Be the first.</p>
-                {% endif %}
+          <section class="start-stats-section">
+            <div class="start-stats-inner">
+              <h2 class="start-heading">Community Progress</h2>
+              <div class="start-progress-wrap">
+                <div class="start-progress-bar">
+                  <div class="start-progress-fill" style="width: {{ coverage_pct }}%"></div>
+                </div>
+                <div class="start-progress-label">
+                  <span>{{ annotated_pdfs }} of {{ total_pdfs }} documents reviewed</span>
+                  <span class="start-progress-pct">{{ coverage_pct }}%</span>
+                </div>
               </div>
-
-              <div class="start-list-col">
-                <h2 class="start-heading">Most Promising</h2>
-                {% if most_promising %}
-                  <ol class="start-ranked-list">
-                    {% for item in most_promising %}
-                      <li>
-                        <a href="/{{ item.filename|cut:'.pdf' }}">
-                          <span class="start-ranked-name">{{ item.filename }}</span>
-                          <span class="start-ranked-stat">+{{ item.vote_score }} vote{{ item.vote_score|pluralize }}</span>
-                        </a>
-                      </li>
-                    {% endfor %}
-                  </ol>
-                {% else %}
-                  <p class="start-empty">No votes yet. Start rating documents.</p>
-                {% endif %}
+              <div class="start-stats">
+                <div class="start-stat">
+                  <div class="start-stat-icon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  </div>
+                  <span class="start-stat-value">{{ total_pdfs }}</span>
+                  <span class="start-stat-label">Documents</span>
+                </div>
+                <div class="start-stat">
+                  <div class="start-stat-icon">
+                    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </div>
+                  <span class="start-stat-value">{{ total_annotations }}</span>
+                  <span class="start-stat-label">Annotations</span>
+                </div>
+                <div class="start-stat">
+                  <div class="start-stat-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </div>
+                  <span class="start-stat-value">{{ total_comments }}</span>
+                  <span class="start-stat-label">Comments</span>
+                </div>
+                <div class="start-stat">
+                  <div class="start-stat-icon">
+                    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <span class="start-stat-value">{{ total_users }}</span>
+                  <span class="start-stat-label">Contributors</span>
+                </div>
               </div>
+            </div>
+          </section>
 
-              <div class="start-list-col">
-                <h2 class="start-heading">Most Redacted</h2>
-                <p class="start-empty">Coming soon — automated redaction scoring is in development.</p>
+          <section class="start-section start-trending">
+            <div class="start-trending-inner">
+              <h2 class="start-section-title">Trending Documents</h2>
+              <p class="start-section-subtitle">See what the community is investigating right now</p>
+              <div class="start-lists">
+                <div class="start-list-col">
+                  <div class="start-list-header">
+                    <div class="start-list-header-icon">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <h3 class="start-heading">Most Discussed</h3>
+                  </div>
+                  {% if most_discussed %}
+                    <ol class="start-ranked-list">
+                      {% for item in most_discussed %}
+                        <li>
+                          <a href="/{{ item.filename|cut:'.pdf' }}">
+                            <span class="start-ranked-name">{{ item.filename }}</span>
+                            <span class="start-ranked-stat">{{ item.discussion_count }} comment{{ item.discussion_count|pluralize }}</span>
+                          </a>
+                        </li>
+                      {% endfor %}
+                    </ol>
+                  {% else %}
+                    <div class="start-empty">
+                      <div class="start-empty-icon">
+                        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      </div>
+                      <p class="start-empty-text">No discussions yet</p>
+                      <a href="/browse/" class="start-empty-cta">Start exploring &rarr;</a>
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="start-list-col">
+                  <div class="start-list-header">
+                    <div class="start-list-header-icon">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                    </div>
+                    <h3 class="start-heading">Most Promising</h3>
+                  </div>
+                  {% if most_promising %}
+                    <ol class="start-ranked-list">
+                      {% for item in most_promising %}
+                        <li>
+                          <a href="/{{ item.filename|cut:'.pdf' }}">
+                            <span class="start-ranked-name">{{ item.filename }}</span>
+                            <span class="start-ranked-stat">+{{ item.vote_score }} vote{{ item.vote_score|pluralize }}</span>
+                          </a>
+                        </li>
+                      {% endfor %}
+                    </ol>
+                  {% else %}
+                    <div class="start-empty">
+                      <div class="start-empty-icon">
+                        <svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                      </div>
+                      <p class="start-empty-text">No votes yet</p>
+                      <a href="/browse/" class="start-empty-cta">Rate documents &rarr;</a>
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div class="start-list-col">
+                  <div class="start-list-header">
+                    <div class="start-list-header-icon">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    </div>
+                    <h3 class="start-heading">Most Redacted</h3>
+                  </div>
+                  <div class="start-empty">
+                    <div class="start-empty-icon">
+                      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    </div>
+                    <p class="start-empty-text">Coming soon</p>
+                    <span class="start-empty-cta" style="color: var(--text-muted);">Automated scoring in development</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="start-cta">
+            <div class="start-cta-inner">
+              <h2 class="start-cta-title">Ready to contribute?</h2>
+              <p class="start-cta-text">Join thousands of researchers analyzing these documents. Every annotation helps uncover the truth.</p>
+              <div class="start-cta-actions">
+                <a class="btn btn-lg" href="/browse/">Browse Documents</a>
+                {% if not request.user.is_authenticated %}
+                <a class="btn btn-secondary btn-lg" href="/register/">Create Account</a>
+                {% endif %}
               </div>
             </div>
           </section>
