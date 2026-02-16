@@ -30,10 +30,10 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-dev-key-change
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").strip().lower() in {"1", "true", "yes"}
 
 _allowed_hosts = os.environ.get("ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(",") if h.strip()] or ["localhost", "127.0.0.1", ".vercel.app"]
+ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(",") if h.strip()] or ["localhost", "127.0.0.1", ".vercel.app", ".epsteinstudio.tech"]
 
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] or ["https://*.vercel.app"]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] or ["https://*.vercel.app", "https://*.epsteinstudio.tech", "https://epsteinstudio.tech"]
 
 # Application definition
 
@@ -82,8 +82,25 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Use PostgreSQL if DB_HOST is set, otherwise fall back to SQLite for local development
-if os.environ.get("DB_HOST"):
+# Use DATABASE_URL if set (Vercel Postgres), otherwise fall back to SQLite for local development
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    import urllib.parse
+    parsed = urllib.parse.urlparse(database_url)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed.path.lstrip("/"),
+            "USER": parsed.username,
+            "PASSWORD": parsed.password,
+            "HOST": parsed.hostname,
+            "PORT": parsed.port or "5432",
+            "OPTIONS": {
+                "sslmode": "require",
+            },
+        }
+    }
+elif os.environ.get("DB_HOST"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -139,7 +156,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static'
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_URL = '/login/'
@@ -150,3 +167,20 @@ LOGOUT_REDIRECT_URL = '/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'epstein-cache',
+        'TIMEOUT': 300,  # 5 minutes default
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        },
+    }
+}
+
+# Cache timeouts for different data types
+CACHE_TIMEOUT_SHORT = 60  # 1 minute for frequently changing data
+CACHE_TIMEOUT_MEDIUM = 300  # 5 minutes for semi-static data
+CACHE_TIMEOUT_LONG = 3600  # 1 hour for static data like PDF lists

@@ -26,13 +26,21 @@ let pdfjsLib = null;
 async function initPdfJs() {
   if (pdfjsLib) return pdfjsLib;
   try {
-    // Check if PDF.js is already loaded globally (from script tag in HTML)
+    // Check if PDF.js is already loaded globally
     if (window.pdfjsLib) {
       pdfjsLib = window.pdfjsLib;
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       return pdfjsLib;
     }
-    console.error("PDF.js not loaded globally");
+    // Use lazy loader if available
+    if (window.loadPdfJs) {
+      pdfjsLib = await window.loadPdfJs();
+      if (pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        return pdfjsLib;
+      }
+    }
+    console.error("PDF.js not available");
     return null;
   } catch (e) {
     console.error("Failed to load PDF.js", e);

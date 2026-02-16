@@ -73,6 +73,27 @@
               <button type="submit" class="btn btn-lg" style="width: 100%;">Sign In</button>
             </form>
             
+            <div class="auth-divider">
+              <span>or</span>
+            </div>
+            
+            <div class="wallet-auth">
+              <button id="connectWalletBtn" class="btn btn-wallet" type="button">
+                <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+                  <circle cx="64" cy="64" r="64" fill="url(#solana-gradient)"/>
+                  <defs>
+                    <linearGradient id="solana-gradient" x1="0" y1="0" x2="128" y2="128">
+                      <stop offset="0%" stop-color="#9945FF"/>
+                      <stop offset="100%" stop-color="#14F195"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M93.5 74.8L85.1 83.7C84.8 84 84.4 84.2 84 84.2H36.5C35.8 84.2 35.4 83.4 35.9 82.9L44.3 74C44.6 73.7 45 73.5 45.4 73.5H92.9C93.6 73.5 94 74.3 93.5 74.8ZM85.1 55.3L93.5 64.2C94 64.7 93.6 65.5 92.9 65.5H45.4C45 65.5 44.6 65.3 44.3 65L35.9 56.1C35.4 55.6 35.8 54.8 36.5 54.8H84C84.4 54.8 84.8 55 85.1 55.3ZM93.5 35.8L85.1 44.7C84.8 45 84.4 45.2 84 45.2H36.5C35.8 45.2 35.4 44.4 35.9 43.9L44.3 35C44.6 34.7 45 34.5 45.4 34.5H92.9C93.6 34.5 94 35.3 93.5 35.8Z" fill="white"/>
+                </svg>
+                Connect Wallet
+              </button>
+              <p id="walletStatus" class="wallet-status"></p>
+            </div>
+            
             <div class="login-footer">
               <p>First time here? <a href="/register/">Create an anonymous account</a></p>
             </div>
@@ -85,5 +106,82 @@
         </div>
       </main>
     </div>
+    <script>
+      (function() {
+        const btn = document.getElementById('connectWalletBtn');
+        const status = document.getElementById('walletStatus');
+        
+        btn.addEventListener('click', async () => {
+          status.textContent = '';
+          status.className = 'wallet-status';
+          
+          // Check for Phantom wallet
+          if (!window.solana || !window.solana.isPhantom) {
+            status.textContent = 'Please install Phantom wallet';
+            status.classList.add('wallet-status-err');
+            window.open('https://phantom.app/', '_blank');
+            return;
+          }
+          
+          try {
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+            
+            // Connect to wallet
+            const resp = await window.solana.connect();
+            const walletAddress = resp.publicKey.toString();
+            
+            // Get nonce from server
+            const nonceResp = await fetch('/solana/nonce/', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({wallet: walletAddress}),
+            });
+            const nonceData = await nonceResp.json();
+            if (!nonceResp.ok) {
+              throw new Error(nonceData.error || 'Failed to get nonce');
+            }
+            
+            // Sign the message
+            const message = new TextEncoder().encode(nonceData.message);
+            const signedMessage = await window.solana.signMessage(message, 'utf8');
+            const signature = btoa(String.fromCharCode(...signedMessage.signature));
+            
+            // Verify with server
+            const verifyResp = await fetch('/solana/verify/', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                wallet: walletAddress,
+                signature: signature,
+                nonce: nonceData.nonce,
+              }),
+            });
+            const verifyData = await verifyResp.json();
+            if (!verifyResp.ok) {
+              throw new Error(verifyData.error || 'Verification failed');
+            }
+            
+            status.textContent = verifyData.action === 'login' 
+              ? 'Signed in as ' + verifyData.username
+              : 'Account created: ' + verifyData.username;
+            status.classList.add('wallet-status-ok');
+            
+            // Redirect after success
+            setTimeout(() => {
+              window.location.href = '{{ next|default:"/" }}';
+            }, 1000);
+            
+          } catch (err) {
+            console.error('Wallet auth error:', err);
+            status.textContent = err.message || 'Connection failed';
+            status.classList.add('wallet-status-err');
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;"><circle cx="64" cy="64" r="64" fill="url(#solana-gradient)"/><defs><linearGradient id="solana-gradient" x1="0" y1="0" x2="128" y2="128"><stop offset="0%" stop-color="#9945FF"/><stop offset="100%" stop-color="#14F195"/></linearGradient></defs><path d="M93.5 74.8L85.1 83.7C84.8 84 84.4 84.2 84 84.2H36.5C35.8 84.2 35.4 83.4 35.9 82.9L44.3 74C44.6 73.7 45 73.5 45.4 73.5H92.9C93.6 73.5 94 74.3 93.5 74.8ZM85.1 55.3L93.5 64.2C94 64.7 93.6 65.5 92.9 65.5H45.4C45 65.5 44.6 65.3 44.3 65L35.9 56.1C35.4 55.6 35.8 54.8 36.5 54.8H84C84.4 54.8 84.8 55 85.1 55.3ZM93.5 35.8L85.1 44.7C84.8 45 84.4 45.2 84 45.2H36.5C35.8 45.2 35.4 44.4 35.9 43.9L44.3 35C44.6 34.7 45 34.5 45.4 34.5H92.9C93.6 34.5 94 35.3 93.5 35.8Z" fill="white"/></svg>Connect Wallet`;
+          }
+        });
+      })();
+    </script>
   </body>
 </html>

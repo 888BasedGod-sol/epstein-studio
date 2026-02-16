@@ -1,0 +1,20 @@
+# Ignore large local files
+data/
+downloads/
+*.pdf
+backend/media/
+media/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.local
+*.sqlite3
+download_log.txt
+upload_log.txt
+upload_blob_log.txt
+download_epstein_log.txt
+nohup.out
+
+# Include blob_manifest.json (it's small)
+!blob_manifest.json

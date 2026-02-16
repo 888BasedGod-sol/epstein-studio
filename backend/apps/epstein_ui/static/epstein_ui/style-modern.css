@@ -1430,6 +1430,78 @@ select {
 }
 
 /* ============================================
+   Skeleton Loading Animations
+   ============================================ */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(20, 20, 20, 0.8);
+}
+
+.skeleton-title {
+  height: 20px;
+  width: 70%;
+}
+
+.skeleton-meta {
+  display: flex;
+  gap: 12px;
+}
+
+.skeleton-meta-item {
+  height: 14px;
+  width: 50px;
+}
+
+.browse-loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* Smooth fade-in for loaded content */
+.browse-card {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
    PDF Viewer / Workspace
    ============================================ */
 
@@ -2721,6 +2793,73 @@ svg {
   line-height: 1.5;
 }
 
+/* Wallet Authentication */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  gap: 16px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--surface-border);
+}
+
+.auth-divider span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wallet-auth {
+  text-align: center;
+}
+
+.btn-wallet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #9945FF 0%, #14F195 100%);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-wallet:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(153, 69, 255, 0.3);
+}
+
+.btn-wallet:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wallet-status {
+  margin-top: 12px;
+  font-size: 0.875rem;
+  min-height: 20px;
+}
+
+.wallet-status-ok {
+  color: var(--success, #14F195);
+}
+
+.wallet-status-err {
+  color: var(--danger, #ff4444);
+}
+
 /* ============================================
    Toggle Buttons
    ============================================ */
@@ -3441,4 +3580,36 @@ textarea#notesInput {
   margin-top: 12px;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.footer-credits {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.footer-credits a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.footer-credits a:hover {
+  text-decoration: underline;
+}
+
+.footer-contract {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.footer-contract code {
+  background: rgba(0, 255, 0, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.7rem;
+  color: var(--primary);
+  user-select: all;
+  cursor: pointer;
 }

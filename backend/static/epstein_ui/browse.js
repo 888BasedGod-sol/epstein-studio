@@ -1,6 +1,7 @@
 const list = document.getElementById("browseList");
 const moreBtn = document.getElementById("browseMore");
 const sortSelect = document.getElementById("browseSort");
+const datasetSelect = document.getElementById("browseDataset");
 const notificationDots = document.querySelectorAll(".notif-dot");
 const randomBtn = document.getElementById("browseRandom");
 const searchInput = document.getElementById("browseSearch");
@@ -17,6 +18,36 @@ let loading = false;
 let hasMore = true;
 let currentSort = sortSelect ? sortSelect.value : "name";
 let currentQuery = "";
+let currentDataset = "";
+
+// Skeleton loading helpers
+function createSkeletonCard() {
+  const card = document.createElement("div");
+  card.className = "skeleton-card";
+  card.innerHTML = `
+    <div class="skeleton skeleton-title"></div>
+    <div class="skeleton-meta">
+      <div class="skeleton skeleton-meta-item"></div>
+      <div class="skeleton skeleton-meta-item"></div>
+    </div>
+  `;
+  return card;
+}
+
+function showSkeletons(count = 8) {
+  const container = document.createElement("div");
+  container.className = "browse-loading";
+  container.id = "browseSkeletons";
+  for (let i = 0; i < count; i++) {
+    container.appendChild(createSkeletonCard());
+  }
+  list.appendChild(container);
+}
+
+function hideSkeletons() {
+  const skeletons = document.getElementById("browseSkeletons");
+  if (skeletons) skeletons.remove();
+}
 
 function setLoading(state) {
   loading = state;
@@ -64,18 +95,30 @@ function appendCard(item) {
 async function loadPage() {
   if (loading || !hasMore) return;
   setLoading(true);
+  
+  // Show skeletons on first load
+  if (page === 1) {
+    showSkeletons(8);
+  }
+  
   try {
-    const response = await fetch(
-      `/browse-list/?page=${page}&sort=${encodeURIComponent(currentSort)}&q=${encodeURIComponent(currentQuery)}`
-    );
+    let url = `/browse-list/?page=${page}&sort=${encodeURIComponent(currentSort)}&q=${encodeURIComponent(currentQuery)}`;
+    if (currentDataset) {
+      url += `&dataset=${encodeURIComponent(currentDataset)}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to load");
     }
     const data = await response.json();
+    
+    // Remove skeletons before adding real content
+    hideSkeletons();
+    
     (data.items || []).forEach(appendCard);
     hasMore = Boolean(data.has_more);
     if (browseCount && typeof data.total === "number") {
-      browseCount.textContent = `${data.total} document${data.total !== 1 ? 's' : ''}`;
+      browseCount.textContent = `${data.total.toLocaleString()} document${data.total !== 1 ? 's' : ''}`;
     }
     page += 1;
     if (!hasMore && moreBtn) {
@@ -83,6 +126,7 @@ async function loadPage() {
     }
   } catch (err) {
     console.error(err);
+    hideSkeletons();
   } finally {
     setLoading(false);
   }
@@ -95,6 +139,17 @@ if (moreBtn) {
 if (sortSelect) {
   sortSelect.addEventListener("change", () => {
     currentSort = sortSelect.value;
+    page = 1;
+    hasMore = true;
+    list.innerHTML = "";
+    if (moreBtn) moreBtn.classList.remove("hidden");
+    loadPage();
+  });
+}
+
+if (datasetSelect) {
+  datasetSelect.addEventListener("change", () => {
+    currentDataset = datasetSelect.value;
     page = 1;
     hasMore = true;
     list.innerHTML = "";
@@ -163,3 +218,18 @@ function loadNotificationCount() {
 
 loadPage();
 loadNotificationCount();
+
+// Infinite scroll with IntersectionObserver
+if (moreBtn) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && hasMore && !loading) {
+          loadPage();
+        }
+      });
+    },
+    { rootMargin: "200px" }
+  );
+  observer.observe(moreBtn);
+}

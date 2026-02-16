@@ -2,7 +2,9 @@
 
 A collaborative workspace for annotating, discussing, and investigating redacted PDF documents. Built for the crowd-sourced effort to dig through the Epstein files.
 
-**Live at [epstein-studio.com](https://epstein-studio.com)**
+**Live at [epsteinstudio.tech](https://epsteinstudio.tech)**
+
+**Solana Contract:** `86L51q8HbvoAjyXRepkhuJT8svKSoMwTkwacPhGvpump`
 
 ---
 

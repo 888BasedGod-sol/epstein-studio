@@ -20,6 +20,63 @@ const pdfVoteScore = document.getElementById("pdfVoteScore");
 const textLayer = document.getElementById("textLayer");
 const defs = svg.querySelector("defs");
 
+// PDF.js worker URL
+let pdfjsLib = null;
+
+async function initPdfJs() {
+  if (pdfjsLib) return pdfjsLib;
+  try {
+    // Check if PDF.js is already loaded globally
+    if (window.pdfjsLib) {
+      pdfjsLib = window.pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      return pdfjsLib;
+    }
+    // Use lazy loader if available
+    if (window.loadPdfJs) {
+      pdfjsLib = await window.loadPdfJs();
+      if (pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        return pdfjsLib;
+      }
+    }
+    console.error("PDF.js not available");
+    return null;
+  } catch (e) {
+    console.error("Failed to load PDF.js", e);
+    return null;
+  }
+}
+
+async function renderPdfWithPdfJs(pdfUrl) {
+  const pdfjs = await initPdfJs();
+  if (!pdfjs) throw new Error("PDF.js not available");
+  
+  const pdf = await pdfjs.getDocument(pdfUrl).promise;
+  const pages = [];
+  const SCALE = 1.5;
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: SCALE });
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    
+    pages.push({
+      url: canvas.toDataURL("image/png"),
+      width: viewport.width,
+      height: viewport.height,
+    });
+  }
+  
+  return pages;
+}
+
 const fontSelect = document.getElementById("fontSelect");
 const sizeRange = document.getElementById("sizeRange");
 const sizeInput = document.getElementById("sizeInput");
@@ -3155,7 +3212,17 @@ async function fetchRandomPdf() {
       throw new Error("Failed to fetch PDF");
     }
     const data = await response.json();
-    if (data.pages && data.pages.length) {
+    
+    // Handle PDF.js rendering for cloud-hosted PDFs
+    if (data.use_pdfjs && data.pdf_url) {
+      try {
+        const pages = await renderPdfWithPdfJs(data.pdf_url);
+        syncPages(pages, data.pdf || "");
+        loadAnnotationsForPdf(data.pdf || "");
+      } catch (e) {
+        console.error("PDF.js rendering failed:", e);
+      }
+    } else if (data.pages && data.pages.length) {
       syncPages(data.pages, data.pdf || "");
       loadAnnotationsForPdf(data.pdf || "");
     }
@@ -3184,7 +3251,17 @@ async function searchPdf() {
       throw new Error("No match");
     }
     const data = await response.json();
-    if (data.pages && data.pages.length) {
+    
+    // Handle PDF.js rendering for cloud-hosted PDFs
+    if (data.use_pdfjs && data.pdf_url) {
+      try {
+        const pages = await renderPdfWithPdfJs(data.pdf_url);
+        syncPages(pages, data.pdf || "");
+        loadAnnotationsForPdf(data.pdf || "");
+      } catch (e) {
+        console.error("PDF.js rendering failed:", e);
+      }
+    } else if (data.pages && data.pages.length) {
       syncPages(data.pages, data.pdf || "");
       loadAnnotationsForPdf(data.pdf || "");
     }
@@ -3969,6 +4046,179 @@ if (annotationSortSelect) {
 setActiveTab("notes");
 setViewportTransform();
 loadNotificationCount();
+
+// === Color Hash Filter for Detecting Imperfect Redactions ===
+const colorFilterToggle = document.getElementById("colorFilterToggle");
+let colorFilterActive = false;
+let originalPageUrls = new Map(); // Store original image URLs
+
+function applyColorHashFilter(imageData) {
+  const data = imageData.data;
+  const len = data.length;
+  
+  // Color hash algorithm: enhance differences in dark regions
+  // This helps reveal imperfect redactions where the black isn't uniform
+  for (let i = 0; i < len; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Calculate luminance
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    
+    // For dark pixels (potential redactions), amplify color differences
+    if (lum < 50) {
+      // Amplify subtle color variations
+      const colorDiff = Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
+      
+      if (colorDiff > 3) {
+        // There's a slight color difference - highlight it
+        const hue = Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b);
+        const normalizedHue = (hue + Math.PI) / (2 * Math.PI);
+        
+        // Map to rainbow colors with high saturation
+        data[i] = Math.floor(Math.sin(normalizedHue * 6.28 + 0) * 127 + 128);
+        data[i + 1] = Math.floor(Math.sin(normalizedHue * 6.28 + 2) * 127 + 128);
+        data[i + 2] = Math.floor(Math.sin(normalizedHue * 6.28 + 4) * 127 + 128);
+      } else {
+        // Pure black - keep as dark gray
+        data[i] = 30;
+        data[i + 1] = 30;
+        data[i + 2] = 30;
+      }
+    } else {
+      // Non-redacted areas: desaturate to make redactions stand out
+      data[i] = Math.floor(lum * 0.7 + 50);
+      data[i + 1] = Math.floor(lum * 0.7 + 50);
+      data[i + 2] = Math.floor(lum * 0.7 + 50);
+    }
+  }
+  
+  return imageData;
+}
+
+async function toggleColorFilter() {
+  colorFilterActive = !colorFilterActive;
+  
+  if (colorFilterToggle) {
+    colorFilterToggle.classList.toggle("active", colorFilterActive);
+  }
+  
+  const images = pdfPages.querySelectorAll("image");
+  
+  for (const img of images) {
+    const originalUrl = img.getAttribute("data-original-url") || img.getAttribute("href");
+    
+    if (!img.getAttribute("data-original-url")) {
+      img.setAttribute("data-original-url", originalUrl);
+    }
+    
+    if (colorFilterActive) {
+      // Apply filter
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = originalUrl;
+        });
+        
+        canvas.width = image.width;
+        canvas.height = image.height;
+        ctx.drawImage(image, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        applyColorHashFilter(imageData);
+        ctx.putImageData(imageData, 0, 0);
+        
+        img.setAttribute("href", canvas.toDataURL("image/png"));
+      } catch (e) {
+        console.error("Error applying color filter:", e);
+      }
+    } else {
+      // Restore original
+      img.setAttribute("href", img.getAttribute("data-original-url"));
+    }
+  }
+}
+
+if (colorFilterToggle) {
+  colorFilterToggle.addEventListener("click", toggleColorFilter);
+}
+
+// === Report Content Functionality ===
+const reportModalOverlay = document.getElementById("reportModalOverlay");
+const reportCancel = document.getElementById("reportCancel");
+const reportSubmit = document.getElementById("reportSubmit");
+let reportTarget = null;
+
+function openReportModal(type, id) {
+  reportTarget = { type, id };
+  if (reportModalOverlay) {
+    reportModalOverlay.classList.remove("hidden");
+  }
+}
+
+function closeReportModal() {
+  reportTarget = null;
+  if (reportModalOverlay) {
+    reportModalOverlay.classList.add("hidden");
+    // Clear selection
+    document.querySelectorAll("input[name='reportReason']").forEach(r => r.checked = false);
+  }
+}
+
+if (reportCancel) {
+  reportCancel.addEventListener("click", closeReportModal);
+}
+
+if (reportModalOverlay) {
+  reportModalOverlay.addEventListener("click", (e) => {
+    if (e.target === reportModalOverlay) closeReportModal();
+  });
+}
+
+if (reportSubmit) {
+  reportSubmit.addEventListener("click", async () => {
+    if (!reportTarget) return;
+    
+    const selectedReason = document.querySelector("input[name='reportReason']:checked");
+    const reason = selectedReason ? selectedReason.value : "not_specified";
+    
+    try {
+      const response = await fetch("/report/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: reportTarget.type,
+          id: reportTarget.id,
+          reason: reason,
+        }),
+      });
+      
+      if (response.ok) {
+        closeReportModal();
+        // Show brief confirmation
+        const toast = document.createElement("div");
+        toast.className = "toast-message";
+        toast.textContent = "Report submitted. Thank you.";
+        toast.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--surface);color:var(--text);padding:12px 24px;border-radius:8px;border:1px solid var(--surface-border);z-index:9999;";
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+    } catch (e) {
+      console.error("Error submitting report:", e);
+    }
+  });
+}
+
+// Export for use in comment rendering
+window.openReportModal = openReportModal;
+
 if (window.DEBUG_MODE) {
   searchInput.value = DEBUG_PDF_NAME;
   searchPdf();

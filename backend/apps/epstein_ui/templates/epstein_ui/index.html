@@ -6,11 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Epstein Studio</title>
     <link rel="icon" href="{% static 'epstein_ui/favicon.ico' %}" type="image/x-icon" />
+    <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preload" href="{% static 'epstein_ui/style-modern.css' %}" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Defer PDF.js loading until needed -->
+    <script>
+      window.loadPdfJs = function() {
+        return new Promise((resolve, reject) => {
+          if (window.pdfjsLib) return resolve(window.pdfjsLib);
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          script.onload = () => resolve(window.pdfjsLib);
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      };
+    </script>
   </head>
   <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}" data-target-hash="{% if target_hash %}{{ target_hash }}{% endif %}">
     <div class="page">
