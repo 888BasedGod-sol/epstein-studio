@@ -4,8 +4,6 @@ A collaborative workspace for annotating, discussing, and investigating redacted
 
 **Live at [epsteinstudio.tech](https://epsteinstudio.tech)**
 
-**Solana Contract:** `86L51q8HbvoAjyXRepkhuJT8svKSoMwTkwacPhGvpump`
-
 ---
 
 ## What Is This

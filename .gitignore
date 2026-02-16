@@ -9,6 +9,7 @@ backend/media/
 backend/db.sqlite3
 results/
 data/
+downloads/
 *.log
 .DS_Store
 .env
