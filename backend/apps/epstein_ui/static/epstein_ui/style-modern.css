@@ -1,5 +1,5 @@
 /* ============================================
-   Epstein Studio - Modern Light Theme
+   Epstein Studio - Modern Theme with Dark/Light Mode
    Clean, accessible, professional UI/UX
    ============================================ */
 
@@ -16,7 +16,7 @@
   --accent-hover: #00e000;
   --accent-light: rgba(0, 255, 0, 0.2);
   
-  /* Background Colors - Dark Theme */
+  /* Background Colors - Dark Theme (default) */
   --bg: #0a0a0a;
   --bg-soft: #111111;
   --bg-muted: #1a1a1a;
@@ -58,6 +58,70 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
 }
+
+/* Light Mode Theme */
+[data-theme="light"] {
+  --primary: #00cc00;
+  --primary-hover: #00aa00;
+  --primary-light: rgba(0, 200, 0, 0.15);
+  --primary-bg: rgba(0, 200, 0, 0.08);
+  --primary-glow: 0 0 20px rgba(0, 200, 0, 0.3);
+  
+  --accent: #00cc00;
+  --accent-hover: #00aa00;
+  --accent-light: rgba(0, 200, 0, 0.2);
+  
+  --bg: #ffffff;
+  --bg-soft: #f8f9fa;
+  --bg-muted: #e9ecef;
+  --bg-dark: #dee2e6;
+  
+  --surface: rgba(255, 255, 255, 0.95);
+  --surface-hover: rgba(248, 249, 250, 1);
+  --surface-border: rgba(0, 0, 0, 0.1);
+  --surface-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  
+  --text: #1a1a1a;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --text-light: #adb5bd;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.15);
+  --shadow-glow: 0 0 30px rgba(0, 200, 0, 0.2);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, transform 0.2s ease;
+  border-radius: var(--radius-md);
+}
+
+.theme-toggle:hover {
+  color: var(--primary);
+  transform: scale(1.1);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-toggle .sun-icon { display: none; }
+.theme-toggle .moon-icon { display: block; }
+
+[data-theme="light"] .theme-toggle .sun-icon { display: block; }
+[data-theme="light"] .theme-toggle .moon-icon { display: none; }
 
 /* ============================================
    Base Styles
@@ -3612,4 +3676,325 @@ textarea#notesInput {
   color: var(--primary);
   user-select: all;
   cursor: pointer;
+}
+
+/* ============================================
+   User Profile Page
+   ============================================ */
+
+.profile-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent-hover));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--bg);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-username {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.profile-joined {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.profile-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  text-align: center;
+}
+
+.profile-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.profile-stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.profile-section {
+  margin-bottom: 32px;
+}
+
+.profile-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.profile-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-activity-item {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-activity-item:hover {
+  border-color: var(--primary);
+}
+
+.profile-activity-text {
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.profile-activity-text a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.profile-activity-text a:hover {
+  text-decoration: underline;
+}
+
+.profile-activity-date {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.profile-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   Leaderboard Page
+   ============================================ */
+
+.leaderboard-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.leaderboard-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.leaderboard-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.leaderboard-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-tab {
+  padding: 10px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leaderboard-tab:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.leaderboard-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.leaderboard-item:hover {
+  border-color: var(--primary);
+  transform: translateX(4px);
+}
+
+.leaderboard-rank {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.leaderboard-rank.gold {
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #000;
+}
+
+.leaderboard-rank.silver {
+  background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+  color: #000;
+}
+
+.leaderboard-rank.bronze {
+  background: linear-gradient(135deg, #cd7f32, #b06000);
+  color: #fff;
+}
+
+.leaderboard-rank.default {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+
+.leaderboard-user {
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboard-username {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-username a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.leaderboard-username a:hover {
+  color: var(--primary);
+}
+
+.leaderboard-user-stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.leaderboard-score {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.leaderboard-score-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.leaderboard-score-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.leaderboard-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .profile-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .leaderboard-item {
+    padding: 12px 16px;
+  }
+  
+  .leaderboard-username {
+    font-size: 0.875rem;
+  }
 }

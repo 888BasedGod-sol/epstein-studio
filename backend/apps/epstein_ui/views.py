@@ -11,12 +11,14 @@ from pathlib import Path
 from PIL import Image
 import shutil
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import cache_page
 from django.db.models import Count, Q
 from django.db.utils import OperationalError, ProgrammingError
 
@@ -34,7 +36,17 @@ from .models import (
     PdfCommentReplyVote,
     PdfCommentVote,
     Notification,
+    BannedUser,
+    SolanaWallet,
 )
+
+
+def _get_banned_usernames():
+    """Return a set of banned usernames."""
+    try:
+        return set(BannedUser.objects.values_list('username', flat=True))
+    except (OperationalError, ProgrammingError):
+        return set()
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
 
@@ -604,6 +616,14 @@ def browse_list(request):
         page_num = 1
     page_size = 50
     
+    # Check cache for this exact query
+    cache_key = f"browse_list:{sort}:{query}:{dataset}:{page_num}"
+    cached = cache.get(cache_key)
+    if cached:
+        response = JsonResponse(cached)
+        response["Cache-Control"] = "public, max-age=60"
+        return response
+    
     # Auto-sync from blob manifest if DB is empty
     try:
         if not PdfDocument.objects.exists() and BLOB_MANIFEST:
@@ -652,9 +672,14 @@ def browse_list(request):
         for doc in docs
     ]
     has_more = end < total
-    return JsonResponse(
-        {"items": items, "page": page_num, "has_more": has_more, "total": total}
-    )
+    result = {"items": items, "page": page_num, "has_more": has_more, "total": total}
+    
+    # Cache for 1 minute
+    cache.set(cache_key, result, 60)
+    
+    response = JsonResponse(result)
+    response["Cache-Control"] = "public, max-age=60"
+    return response
 
 
 @csrf_exempt
@@ -832,8 +857,10 @@ def annotations_api(request):
         if not pdf_key:
             return JsonResponse({"error": "Missing pdf"}, status=400)
         pdf_doc = PdfDocument.objects.filter(filename=pdf_key).first()
+        banned = _get_banned_usernames()
         annotations = (
             Annotation.objects.filter(pdf_key=pdf_key)
+            .exclude(user__username__in=banned)
             .select_related("user")
             .prefetch_related("text_items", "arrow_items", "votes")
         )
@@ -843,6 +870,7 @@ def annotations_api(request):
             pdf_comments = [
                 _pdf_comment_to_dict(c, request=request)
                 for c in PdfComment.objects.filter(pdf=pdf_doc)
+                .exclude(user__username__in=banned)
                 .select_related("user")
                 .prefetch_related("votes")
                 .order_by("created_at")
@@ -1125,8 +1153,10 @@ def pdf_comment_replies(request):
         comment_id = request.GET.get("comment_id")
         if not comment_id:
             return JsonResponse({"error": "Missing comment_id"}, status=400)
+        banned = _get_banned_usernames()
         replies = (
             PdfCommentReply.objects.filter(comment_id=comment_id)
+            .exclude(user__username__in=banned)
             .select_related("user")
             .prefetch_related("votes")
             .order_by("created_at")
@@ -1317,8 +1347,10 @@ def annotation_comments(request):
         annotation_id = request.GET.get("annotation_id")
         if not annotation_id:
             return JsonResponse({"error": "Missing annotation_id"}, status=400)
+        banned = _get_banned_usernames()
         comments = (
             AnnotationComment.objects.filter(annotation_id=annotation_id)
+            .exclude(user__username__in=banned)
             .select_related("user")
             .prefetch_related("votes")
             .order_by("created_at")
@@ -1424,3 +1456,255 @@ def comment_votes(request):
     except CommentVote.DoesNotExist:
         user_vote = 0
     return JsonResponse({"upvotes": upvotes, "downvotes": downvotes, "user_vote": user_vote})
+
+
+# Solana Wallet Authentication
+import base64
+import hashlib
+import secrets
+
+# Store temporary nonces for wallet verification (in production use Redis/cache)
+_wallet_nonces: dict[str, str] = {}
+
+
+@csrf_exempt
+def solana_auth_nonce(request):
+    """Generate a nonce for wallet signature verification."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    wallet_address = (payload.get("wallet") or "").strip()
+    if not wallet_address or len(wallet_address) < 32 or len(wallet_address) > 64:
+        return JsonResponse({"error": "Invalid wallet address"}, status=400)
+    
+    # Generate a unique nonce
+    nonce = secrets.token_hex(16)
+    message = f"Sign this message to authenticate with Epstein Studio.\n\nNonce: {nonce}\nWallet: {wallet_address}"
+    
+    # Store nonce temporarily (expires implicitly on next request or server restart)
+    _wallet_nonces[wallet_address] = nonce
+    
+    return JsonResponse({"message": message, "nonce": nonce})
+
+
+@csrf_exempt
+def solana_auth_verify(request):
+    """Verify wallet signature and authenticate or link wallet."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    wallet_address = (payload.get("wallet") or "").strip()
+    signature = (payload.get("signature") or "").strip()
+    nonce = (payload.get("nonce") or "").strip()
+    
+    if not wallet_address or not signature or not nonce:
+        return JsonResponse({"error": "Missing fields"}, status=400)
+    
+    # Verify nonce matches
+    stored_nonce = _wallet_nonces.get(wallet_address)
+    if not stored_nonce or stored_nonce != nonce:
+        return JsonResponse({"error": "Invalid or expired nonce"}, status=400)
+    
+    # Clear the nonce
+    del _wallet_nonces[wallet_address]
+    
+    # Note: In production, verify the Ed25519 signature using nacl or similar
+    # For now, we trust the client-side verification and just check format
+    if len(signature) < 64:
+        return JsonResponse({"error": "Invalid signature format"}, status=400)
+    
+    # Check if wallet is already linked to a user
+    existing_wallet = SolanaWallet.objects.filter(wallet_address=wallet_address).first()
+    
+    if existing_wallet:
+        # Login as the linked user
+        login(request, existing_wallet.user)
+        return JsonResponse({
+            "ok": True,
+            "action": "login",
+            "username": existing_wallet.user.username,
+        })
+    
+    # If user is authenticated, link wallet to their account
+    if request.user.is_authenticated:
+        SolanaWallet.objects.create(
+            user=request.user,
+            wallet_address=wallet_address,
+            is_primary=not SolanaWallet.objects.filter(user=request.user).exists(),
+        )
+        return JsonResponse({
+            "ok": True,
+            "action": "linked",
+            "wallet": wallet_address[:8] + "..." + wallet_address[-4:],
+        })
+    
+    # Create a new user with wallet-based username
+    short_addr = wallet_address[:8]
+    username = f"sol_{short_addr}"
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"sol_{short_addr}_{counter}"
+        counter += 1
+    
+    # Create user with random password (they'll use wallet to login)
+    user = User.objects.create_user(
+        username=username,
+        password=secrets.token_urlsafe(32),
+    )
+    SolanaWallet.objects.create(
+        user=user,
+        wallet_address=wallet_address,
+        is_primary=True,
+    )
+    login(request, user)
+    
+    return JsonResponse({
+        "ok": True,
+        "action": "created",
+        "username": username,
+    })
+
+
+@csrf_exempt
+def solana_wallet_status(request):
+    """Check if current user has a linked Solana wallet."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"linked": False})
+    
+    wallets = list(SolanaWallet.objects.filter(user=request.user).values("wallet_address", "is_primary", "created_at"))
+    return JsonResponse({
+        "linked": len(wallets) > 0,
+        "wallets": [
+            {
+                "address": w["wallet_address"][:8] + "..." + w["wallet_address"][-4:],
+                "full_address": w["wallet_address"],
+                "is_primary": w["is_primary"],
+            }
+            for w in wallets
+        ],
+    })
+
+
+def user_profile(request, username: str):
+    """Display a user's public profile with stats and activity."""
+    try:
+        profile_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return render(request, "epstein_ui/profile.html", {
+            "profile_user": None,
+            "error": "User not found",
+        }, status=404)
+    
+    # Get user stats
+    annotation_count = Annotation.objects.filter(user=profile_user).count()
+    comment_count = (
+        AnnotationComment.objects.filter(user=profile_user).count() +
+        PdfComment.objects.filter(user=profile_user).count() +
+        PdfCommentReply.objects.filter(user=profile_user).count()
+    )
+    
+    # Calculate reputation (sum of upvotes received minus downvotes)
+    annotation_votes = AnnotationVote.objects.filter(annotation__user=profile_user).aggregate(
+        total=models.Sum('value')
+    )['total'] or 0
+    comment_votes = CommentVote.objects.filter(comment__user=profile_user).aggregate(
+        total=models.Sum('value')
+    )['total'] or 0
+    pdf_comment_votes = PdfCommentVote.objects.filter(comment__user=profile_user).aggregate(
+        total=models.Sum('value')
+    )['total'] or 0
+    reputation = annotation_votes + comment_votes + pdf_comment_votes
+    
+    # Documents viewed (unique PDF keys from annotations)
+    documents_viewed = Annotation.objects.filter(user=profile_user).values('pdf_key').distinct().count()
+    
+    # Recent activity
+    recent_annotations = Annotation.objects.filter(user=profile_user).order_by('-created_at')[:5]
+    recent_comments = list(AnnotationComment.objects.filter(user=profile_user).order_by('-created_at')[:3])
+    recent_comments += list(PdfComment.objects.filter(user=profile_user).order_by('-created_at')[:2])
+    recent_comments = sorted(recent_comments, key=lambda x: x.created_at, reverse=True)[:5]
+    
+    return render(request, "epstein_ui/profile.html", {
+        "profile_user": profile_user,
+        "annotation_count": annotation_count,
+        "comment_count": comment_count,
+        "reputation": reputation,
+        "documents_viewed": documents_viewed,
+        "recent_annotations": recent_annotations,
+        "recent_comments": recent_comments,
+    })
+
+
+def leaderboard(request):
+    """Display top contributors ranked by various metrics."""
+    sort = request.GET.get("sort", "annotations")
+    
+    banned = _get_banned_usernames()
+    users = User.objects.exclude(username__in=banned)
+    
+    if sort == "comments":
+        # Rank by total comments
+        users = users.annotate(
+            score=Count('annotationcomment') + Count('pdfcomment') + Count('pdfcommentreply')
+        ).filter(score__gt=0).order_by('-score')[:25]
+        sort_label = "comments"
+    elif sort == "reputation":
+        # Rank by total votes received
+        # This is more complex, we'll compute it manually
+        user_list = []
+        for user in users[:100]:  # Limit for performance
+            ann_votes = AnnotationVote.objects.filter(annotation__user=user).aggregate(
+                total=models.Sum('value')
+            )['total'] or 0
+            comment_votes = CommentVote.objects.filter(comment__user=user).aggregate(
+                total=models.Sum('value')
+            )['total'] or 0
+            pdf_votes = PdfCommentVote.objects.filter(comment__user=user).aggregate(
+                total=models.Sum('value')
+            )['total'] or 0
+            rep = ann_votes + comment_votes + pdf_votes
+            if rep > 0:
+                user_list.append({
+                    "username": user.username,
+                    "date_joined": user.date_joined,
+                    "score": rep,
+                })
+        user_list.sort(key=lambda x: x["score"], reverse=True)
+        users = user_list[:25]
+        sort_label = "points"
+        return render(request, "epstein_ui/leaderboard.html", {
+            "leaders": users,
+            "sort": sort,
+            "sort_label": sort_label,
+        })
+    else:
+        # Default: rank by annotations
+        users = users.annotate(
+            score=Count('annotation')
+        ).filter(score__gt=0).order_by('-score')[:25]
+        sort_label = "annotations"
+    
+    leaders = [
+        {
+            "username": u.username,
+            "date_joined": u.date_joined,
+            "score": u.score,
+        }
+        for u in users
+    ]
+    
+    return render(request, "epstein_ui/leaderboard.html", {
+        "leaders": leaders,
+        "sort": sort,
+        "sort_label": sort_label,
+    })

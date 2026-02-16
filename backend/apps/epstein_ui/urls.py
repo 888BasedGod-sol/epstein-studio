@@ -32,6 +32,13 @@ urlpatterns = [
     path("notifications-count/", views.notifications_summary, name="notifications_summary"),
     path("notifications/", views.notifications_view, name="notifications_view"),
     path("notifications-read/", views.notifications_mark_read, name="notifications_read"),
+    # User profiles and leaderboard
+    path("leaderboard/", views.leaderboard, name="leaderboard"),
+    path("user/<str:username>/", views.user_profile, name="user_profile"),
+    # Solana wallet authentication
+    path("solana/nonce/", views.solana_auth_nonce, name="solana_auth_nonce"),
+    path("solana/verify/", views.solana_auth_verify, name="solana_auth_verify"),
+    path("solana/status/", views.solana_wallet_status, name="solana_wallet_status"),
     re_path(r"^(?P<pdf_slug>[A-Za-z0-9_.\-]+)/(?P<target_hash>[0-9a-f-]{36})/$", views.index, name="index_pdf_comment"),
     re_path(r"^(?P<pdf_slug>[A-Za-z0-9_.\-]+)$", views.index, name="index_pdf"),
 ]

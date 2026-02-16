@@ -153,3 +153,32 @@ class Notification(models.Model):
     annotation_comment = models.ForeignKey(AnnotationComment, null=True, blank=True, on_delete=models.CASCADE)
     pdf_comment = models.ForeignKey(PdfComment, null=True, blank=True, on_delete=models.CASCADE)
     pdf_comment_reply = models.ForeignKey(PdfCommentReply, null=True, blank=True, on_delete=models.CASCADE)
+
+
+class BannedUser(models.Model):
+    """Track banned usernames whose content should be hidden."""
+    username = models.CharField(max_length=150, unique=True, db_index=True)
+    reason = models.TextField(blank=True, help_text="Optional reason for the ban")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.username
+
+    class Meta:
+        verbose_name = "Banned User"
+        verbose_name_plural = "Banned Users"
+
+
+class SolanaWallet(models.Model):
+    """Link Solana wallet addresses to user accounts for wallet-based auth."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="solana_wallets")
+    wallet_address = models.CharField(max_length=64, unique=True, db_index=True)
+    is_primary = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.wallet_address[:8]}...{self.wallet_address[-4:]}"
+
+    class Meta:
+        verbose_name = "Solana Wallet"
+        verbose_name_plural = "Solana Wallets"
