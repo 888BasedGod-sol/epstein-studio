@@ -4,8 +4,11 @@
 import os
 import sys
 import json
+import ipaddress
+import socket
 import urllib.request
 import urllib.error
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
@@ -26,10 +29,45 @@ load_env()
 BLOB_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
 DATA_DIR = Path(__file__).parent.parent / "data"
 MANIFEST_FILE = Path(__file__).parent.parent / "blob_manifest.json"
+ALLOWED_UPLOAD_HOSTS = {"blob.vercel-storage.com"}
 
 if not BLOB_TOKEN:
     print("❌ BLOB_READ_WRITE_TOKEN not found in environment or .env.local")
     sys.exit(1)
+
+
+def is_allowed_upload_url(url: str) -> bool:
+    """Allow only HTTPS uploads to approved blob host."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+
+    if parsed.scheme != "https" or not parsed.hostname:
+        return False
+
+    hostname = parsed.hostname.lower()
+    if hostname not in ALLOWED_UPLOAD_HOSTS:
+        return False
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+
+    for _, _, _, _, sockaddr in addr_info:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+
+    return True
 
 
 def upload_file(pdf_path: Path) -> Optional[dict]:
@@ -41,6 +79,9 @@ def upload_file(pdf_path: Path) -> Optional[dict]:
     
     # Vercel Blob API endpoint
     url = f"https://blob.vercel-storage.com/{filename}"
+    if not is_allowed_upload_url(url):
+        print(f"  ❌ Blocked non-allowlisted upload URL: {url}")
+        return None
     
     req = urllib.request.Request(
         url,
@@ -66,10 +107,13 @@ def upload_file(pdf_path: Path) -> Optional[dict]:
         try:
             error_body = e.read().decode()
             print(f"     {error_body[:200]}")
-        except:
-            pass
+        except (UnicodeDecodeError, OSError):
+            print("     Unable to decode error body")
         return None
-    except Exception as e:
+    except urllib.error.URLError as e:
+        print(f"  ❌ Failed {filename}: {e.reason}")
+        return None
+    except OSError as e:
         print(f"  ❌ Failed {filename}: {e}")
         return None
 
@@ -85,8 +129,8 @@ def main():
         try:
             existing = json.loads(MANIFEST_FILE.read_text())
             print(f"📋 Found existing manifest with {len(existing)} entries")
-        except:
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"⚠️ Failed to load existing manifest: {exc}")
     
     # Get all PDFs
     pdfs = sorted(DATA_DIR.glob("*.pdf"))

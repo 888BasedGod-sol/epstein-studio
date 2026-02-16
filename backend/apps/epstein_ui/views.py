@@ -1,16 +1,21 @@
 import hashlib
 import json
+import logging
 import os
 import random
+import ipaddress
+import socket
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 import tempfile
 from pathlib import Path
 
 from PIL import Image
 import shutil
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
@@ -37,6 +42,63 @@ from .models import (
 )
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
+logger = logging.getLogger(__name__)
+
+ALLOWED_OUTBOUND_HOSTS = {"api.github.com"}
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "600"))
+REPORT_RATE_LIMIT_MAX = int(os.environ.get("REPORT_RATE_LIMIT_MAX", "10"))
+FEATURE_RATE_LIMIT_MAX = int(os.environ.get("FEATURE_RATE_LIMIT_MAX", "5"))
+
+
+def _is_public_outbound_url(url: str, allowed_hosts: set[str]) -> bool:
+    """Allow only HTTPS URLs to known public hosts."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+
+    if parsed.scheme != "https" or not parsed.hostname:
+        return False
+
+    hostname = parsed.hostname.lower()
+    if hostname not in allowed_hosts:
+        return False
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+
+    for _, _, _, _, sockaddr in addr_info:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+
+    return True
+
+
+def _client_ip(request) -> str:
+    """Best-effort client IP extraction for rate limiting keys."""
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip() or "unknown"
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def _rate_limited(request, action: str, max_requests: int) -> bool:
+    """Fixed-window rate limiting by user id (if authenticated) or client IP."""
+    subject = f"u:{request.user.id}" if request.user.is_authenticated else f"ip:{_client_ip(request)}"
+    key = f"rl:{action}:{subject}"
+    current = cache.get(key, 0) + 1
+    cache.set(key, current, timeout=RATE_LIMIT_WINDOW_SECONDS)
+    return current > max_requests
 
 # Load blob manifest for Vercel deployment
 BLOB_MANIFEST = {}
@@ -44,8 +106,8 @@ MANIFEST_PATH = Path(__file__).resolve().parents[3] / "blob_manifest.json"
 if MANIFEST_PATH.exists():
     try:
         BLOB_MANIFEST = json.loads(MANIFEST_PATH.read_text())
-    except:
-        pass
+    except (OSError, json.JSONDecodeError):
+        logger.exception("Failed to load blob manifest from %s", MANIFEST_PATH)
 
 
 def _get_pdf_blob_url(filename: str) -> str:
@@ -316,6 +378,9 @@ def report_content(request):
     
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Login required"}, status=401)
+
+    if _rate_limited(request, "report_content", REPORT_RATE_LIMIT_MAX):
+        return JsonResponse({"error": "Too many reports. Please try again later."}, status=429)
     
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
@@ -342,10 +407,15 @@ def report_content(request):
         "body": body,
         "labels": ["content-report", "moderation"],
     }).encode("utf-8")
+
+    issue_url = "https://api.github.com/repos/artischocki/epstein-studio/issues"
+    if not _is_public_outbound_url(issue_url, ALLOWED_OUTBOUND_HOSTS):
+        logger.error("Blocked non-allowlisted outbound URL: %s", issue_url)
+        return JsonResponse({"ok": True, "message": "Report received"})
     
     try:
         req = urllib.request.Request(
-            f"https://api.github.com/repos/artischocki/epstein-studio/issues",
+            issue_url,
             data=issue_data,
             headers={
                 "Authorization": f"token {github_token}",
@@ -355,8 +425,10 @@ def report_content(request):
             method="POST",
         )
         urllib.request.urlopen(req, timeout=10)
-    except:
-        pass  # Silently fail
+    except urllib.error.HTTPError:
+        logger.exception("GitHub API rejected content report issue creation")
+    except urllib.error.URLError:
+        logger.exception("GitHub API unreachable when submitting content report")
     
     return JsonResponse({"ok": True, "message": "Report submitted for review"})
 
@@ -369,6 +441,9 @@ def feature_request(request):
     """Create a GitHub issue from a feature request submission."""
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    if _rate_limited(request, "feature_request", FEATURE_RATE_LIMIT_MAX):
+        return JsonResponse({"error": "Too many requests. Please try again later."}, status=429)
 
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
@@ -399,8 +474,13 @@ def feature_request(request):
         "labels": ["feature-request"],
     }).encode("utf-8")
 
+    issue_url = f"https://api.github.com/repos/{GITHUB_REPO}/issues"
+    if not _is_public_outbound_url(issue_url, ALLOWED_OUTBOUND_HOSTS):
+        logger.error("Blocked non-allowlisted outbound URL: %s", issue_url)
+        return JsonResponse({"error": "Feature requests are not configured"}, status=503)
+
     req = urllib.request.Request(
-        f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+        issue_url,
         data=issue_data,
         headers={
             "Authorization": f"Bearer {github_token}",
@@ -411,13 +491,17 @@ def feature_request(request):
     )
 
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             return JsonResponse({
                 "ok": True,
                 "issue_url": result.get("html_url", ""),
             })
-    except urllib.error.HTTPError as exc:
+    except urllib.error.HTTPError:
+        logger.exception("GitHub API rejected feature request issue creation")
+        return JsonResponse({"error": "Failed to create issue"}, status=502)
+    except urllib.error.URLError:
+        logger.exception("GitHub API unreachable when submitting feature request")
         return JsonResponse({"error": "Failed to create issue"}, status=502)
 
 
