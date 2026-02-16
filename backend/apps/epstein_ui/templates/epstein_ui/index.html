@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'epstein_ui/style-modern.css' %}" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   </head>
   <body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user="{% if user.is_authenticated %}{{ user.username }}{% endif %}" data-target-hash="{% if target_hash %}{{ target_hash }}{% endif %}">
     <div class="page">
@@ -45,6 +46,7 @@
                 </summary>
                 <div class="account-dropdown">
                   <div class="account-username">{{ user.username }}</div>
+                  <a class="account-link" href="/my-annotations/">My Annotations</a>
                   <a class="account-link" href="/notifications/">
                     Notifications
                     <span class="notif-dot hidden" aria-hidden="true"></span>
@@ -215,6 +217,10 @@
               </div>
             </div>
             <div class="header-actions">
+              <button id="colorFilterToggle" class="color-filter-toggle" type="button" title="Toggle color hash filter to detect imperfect redactions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/><path d="M12 12L12 2"/></svg>
+                Color Filter
+              </button>
               <div class="search-wrap">
                 <input id="searchInput" type="text" placeholder="Search PDF File..." list="pdfSuggestions" />
                 <datalist id="pdfSuggestions"></datalist>
@@ -264,9 +270,108 @@
     </div>
     <a class="coffee-link" href="https://buymeacoffee.com/artischocki" target="_blank" rel="noopener">Support this project</a>
 
+    <!-- Report Modal -->
+    <div id="reportModalOverlay" class="report-modal-overlay hidden">
+      <div class="report-modal">
+        <h3 class="report-modal-title">Report Content</h3>
+        <div class="report-modal-options">
+          <label class="report-option">
+            <input type="radio" name="reportReason" value="spam" />
+            <span>Spam or advertising</span>
+          </label>
+          <label class="report-option">
+            <input type="radio" name="reportReason" value="harassment" />
+            <span>Harassment or abuse</span>
+          </label>
+          <label class="report-option">
+            <input type="radio" name="reportReason" value="misinformation" />
+            <span>Misinformation</span>
+          </label>
+          <label class="report-option">
+            <input type="radio" name="reportReason" value="other" />
+            <span>Other</span>
+          </label>
+        </div>
+        <div class="report-modal-actions">
+          <button id="reportCancel" class="btn btn-outline" type="button">Cancel</button>
+          <button id="reportSubmit" class="btn" type="button">Submit Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Age Verification Modal -->
+    <div id="ageModal" class="age-modal-overlay hidden">
+      <div class="age-modal">
+        <div class="age-modal-icon">18+</div>
+        <h2 class="age-modal-title">Age Verification Required</h2>
+        <p class="age-modal-text">
+          This platform contains sensitive legal documents including court filings, 
+          depositions, and evidence materials that may not be suitable for minors.
+          <br><br>
+          By continuing, you confirm that you are at least 18 years old.
+        </p>
+        <div class="age-modal-actions">
+          <button id="ageConfirm" class="btn">I am 18 or older - Enter</button>
+          <button id="ageExit" class="btn age-modal-exit">Exit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="cookie-banner hidden">
+      <p class="cookie-text">
+        We use essential cookies for login sessions and security. No tracking. 
+        <a href="/privacy/">Learn more</a>
+      </p>
+      <div class="cookie-actions">
+        <button id="cookieAccept" class="btn">Accept</button>
+      </div>
+    </div>
+
     <script>
       window.STATIC_EPSTEIN_UI_BASE = "{% static 'epstein_ui/' %}";
+      
+      // Age Verification and Cookie Banner
+      (function() {
+        const ageKey = 'epstein_age_verified';
+        const cookieKey = 'epstein_cookies_accepted';
+        const ageModal = document.getElementById('ageModal');
+        const cookieBanner = document.getElementById('cookieBanner');
+        
+        if (ageModal && !localStorage.getItem(ageKey)) {
+          ageModal.classList.remove('hidden');
+        } else if (cookieBanner && !localStorage.getItem(cookieKey)) {
+          cookieBanner.classList.remove('hidden');
+        }
+        
+        const ageConfirm = document.getElementById('ageConfirm');
+        const ageExit = document.getElementById('ageExit');
+        const cookieAccept = document.getElementById('cookieAccept');
+        
+        if (ageConfirm) {
+          ageConfirm.addEventListener('click', function() {
+            localStorage.setItem(ageKey, '1');
+            ageModal.classList.add('hidden');
+            if (cookieBanner && !localStorage.getItem(cookieKey)) {
+              cookieBanner.classList.remove('hidden');
+            }
+          });
+        }
+        
+        if (ageExit) {
+          ageExit.addEventListener('click', function() {
+            window.location.href = 'https://google.com';
+          });
+        }
+        
+        if (cookieAccept) {
+          cookieAccept.addEventListener('click', function() {
+            localStorage.setItem(cookieKey, '1');
+            cookieBanner.classList.add('hidden');
+          });
+        }
+      })();
     </script>
-    <script src="{% static 'epstein_ui/app.js' %}?v=2"></script>
+    <script src="{% static 'epstein_ui/app.js' %}?v=3"></script>
   </body>
 </html>

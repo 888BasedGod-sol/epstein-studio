@@ -49,24 +49,32 @@
               <p>Join the community to start annotating documents.</p>
             </div>
             
-            <form method="post" class="login-form">
+            <form method="post" class="login-form" action="{% url 'register' %}">
               {% csrf_token %}
               <label class="field">
                 <span>Anonymous Username</span>
-                <input id="usernameField" type="text" name="username" autocomplete="username" required autofocus readonly value="{{ suggested_id|default:current_username }}" />
-                <input type="hidden" name="suggested_id" value="{{ suggested_id|default:'' }}" />
+                <input id="usernameField" type="text" name="username" autocomplete="username" required autofocus value="{{ current_username|default:suggested_id }}" />
                 {% if form.errors.username %}
-                  <div class="login-error" style="margin-top: 8px; margin-bottom: 0;">{{ form.errors.username|join:", " }}</div>
+                  <div class="field-error">{{ form.errors.username|join:", " }}</div>
                 {% endif %}
               </label>
               <label class="field">
                 <span>Password</span>
                 <input type="password" name="password1" autocomplete="new-password" required />
+                {% if form.errors.password1 %}
+                  <div class="field-error">{{ form.errors.password1|join:", " }}</div>
+                {% endif %}
               </label>
               <label class="field">
                 <span>Confirm Password</span>
                 <input type="password" name="password2" autocomplete="new-password" required />
+                {% if form.errors.password2 %}
+                  <div class="field-error">{{ form.errors.password2|join:", " }}</div>
+                {% endif %}
               </label>
+              {% if form.non_field_errors %}
+                <div class="login-error">{{ form.non_field_errors|join:", " }}</div>
+              {% endif %}
               <button type="submit" class="btn btn-lg" style="width: 100%;">Create Account</button>
             </form>
             

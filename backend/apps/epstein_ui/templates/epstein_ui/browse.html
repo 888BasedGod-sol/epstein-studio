@@ -31,6 +31,7 @@
                 </summary>
                 <div class="account-dropdown">
                   <div class="account-username">{{ request.user.username }}</div>
+                  <a class="account-link" href="/my-annotations/">My Annotations</a>
                   <a class="account-link" href="/notifications/">Notifications <span class="notif-dot hidden" aria-hidden="true"></span></a>
                   <a class="account-link" href="/logout/">Logout</a>
                 </div>
@@ -67,6 +68,21 @@
                 <option value="promising">Most Promising</option>
                 <option value="least">Least Promising</option>
                 <option value="ann_least">Least Annotations</option>
+              </select>
+              <select id="browseDataset" class="btn btn-secondary" aria-label="Filter by dataset">
+                <option value="">All Datasets</option>
+                <option value="1">Dataset 1</option>
+                <option value="2">Dataset 2</option>
+                <option value="3">Dataset 3</option>
+                <option value="4">Dataset 4</option>
+                <option value="5">Dataset 5</option>
+                <option value="6">Dataset 6</option>
+                <option value="7">Dataset 7</option>
+                <option value="8">Dataset 8</option>
+                <option value="9">Dataset 9</option>
+                <option value="10">Dataset 10</option>
+                <option value="11">Dataset 11</option>
+                <option value="12">Dataset 12</option>
               </select>
               <button id="browseRandom" class="btn btn-secondary" type="button">
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="margin-right: 6px;">

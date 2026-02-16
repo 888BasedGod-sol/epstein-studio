@@ -13,3 +13,5 @@ data/
 .DS_Store
 .env
 node_modules/
+.vercel
+.env*.local

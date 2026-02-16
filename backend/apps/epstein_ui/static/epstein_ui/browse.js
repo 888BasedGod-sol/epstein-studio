@@ -1,6 +1,7 @@
 const list = document.getElementById("browseList");
 const moreBtn = document.getElementById("browseMore");
 const sortSelect = document.getElementById("browseSort");
+const datasetSelect = document.getElementById("browseDataset");
 const notificationDots = document.querySelectorAll(".notif-dot");
 const randomBtn = document.getElementById("browseRandom");
 const searchInput = document.getElementById("browseSearch");
@@ -17,6 +18,7 @@ let loading = false;
 let hasMore = true;
 let currentSort = sortSelect ? sortSelect.value : "name";
 let currentQuery = "";
+let currentDataset = "";
 
 function setLoading(state) {
   loading = state;
@@ -65,9 +67,11 @@ async function loadPage() {
   if (loading || !hasMore) return;
   setLoading(true);
   try {
-    const response = await fetch(
-      `/browse-list/?page=${page}&sort=${encodeURIComponent(currentSort)}&q=${encodeURIComponent(currentQuery)}`
-    );
+    let url = `/browse-list/?page=${page}&sort=${encodeURIComponent(currentSort)}&q=${encodeURIComponent(currentQuery)}`;
+    if (currentDataset) {
+      url += `&dataset=${encodeURIComponent(currentDataset)}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to load");
     }
@@ -95,6 +99,17 @@ if (moreBtn) {
 if (sortSelect) {
   sortSelect.addEventListener("change", () => {
     currentSort = sortSelect.value;
+    page = 1;
+    hasMore = true;
+    list.innerHTML = "";
+    if (moreBtn) moreBtn.classList.remove("hidden");
+    loadPage();
+  });
+}
+
+if (datasetSelect) {
+  datasetSelect.addEventListener("change", () => {
+    currentDataset = datasetSelect.value;
     page = 1;
     hasMore = true;
     list.innerHTML = "";

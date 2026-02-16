@@ -33,6 +33,7 @@
                 </summary>
                 <div class="account-dropdown">
                   <div class="account-username">{{ request.user.username }}</div>
+                  <a class="account-link" href="/my-annotations/">My Annotations</a>
                   <a class="account-link" href="/notifications/">Notifications</a>
                   <a class="account-link" href="/logout/">Logout</a>
                 </div>
@@ -229,6 +230,78 @@
 
         </div>
       </main>
+
+      <footer class="site-footer">
+        <div class="footer-links">
+          <a href="/about/">About</a>
+          <a href="/privacy/">Privacy Policy</a>
+          <a href="/terms/">Terms of Service</a>
+          <a href="https://github.com/artischocki/epstein-studio" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <div class="footer-copy">&copy; 2026 Epstein Studio. Open Source under MIT License.</div>
+      </footer>
+
+      <!-- Age Verification Modal -->
+      <div id="ageModal" class="age-modal-overlay hidden">
+        <div class="age-modal">
+          <div class="age-modal-icon">18+</div>
+          <h2 class="age-modal-title">Age Verification Required</h2>
+          <p class="age-modal-text">
+            This platform contains sensitive legal documents including court filings, 
+            depositions, and evidence materials that may not be suitable for minors.
+            <br><br>
+            By continuing, you confirm that you are at least 18 years old.
+          </p>
+          <div class="age-modal-actions">
+            <button id="ageConfirm" class="btn">I am 18 or older - Enter</button>
+            <button id="ageExit" class="btn age-modal-exit">Exit</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cookie Banner -->
+      <div id="cookieBanner" class="cookie-banner hidden">
+        <p class="cookie-text">
+          We use essential cookies for login sessions and security. No tracking. 
+          <a href="/privacy/">Learn more</a>
+        </p>
+        <div class="cookie-actions">
+          <button id="cookieAccept" class="btn">Accept</button>
+        </div>
+      </div>
     </div>
+
+    <script>
+      // Age Verification
+      (function() {
+        const ageKey = 'epstein_age_verified';
+        const cookieKey = 'epstein_cookies_accepted';
+        const ageModal = document.getElementById('ageModal');
+        const cookieBanner = document.getElementById('cookieBanner');
+        
+        if (!localStorage.getItem(ageKey)) {
+          ageModal.classList.remove('hidden');
+        } else if (!localStorage.getItem(cookieKey)) {
+          cookieBanner.classList.remove('hidden');
+        }
+        
+        document.getElementById('ageConfirm').addEventListener('click', function() {
+          localStorage.setItem(ageKey, '1');
+          ageModal.classList.add('hidden');
+          if (!localStorage.getItem(cookieKey)) {
+            cookieBanner.classList.remove('hidden');
+          }
+        });
+        
+        document.getElementById('ageExit').addEventListener('click', function() {
+          window.location.href = 'https://google.com';
+        });
+        
+        document.getElementById('cookieAccept').addEventListener('click', function() {
+          localStorage.setItem(cookieKey, '1');
+          cookieBanner.classList.add('hidden');
+        });
+      })();
+    </script>
   </body>
 </html>

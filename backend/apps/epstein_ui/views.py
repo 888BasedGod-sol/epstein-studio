@@ -5,12 +5,13 @@ import random
 import subprocess
 import urllib.request
 import urllib.error
+import tempfile
 from pathlib import Path
 
 from PIL import Image
 import shutil
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
@@ -36,6 +37,20 @@ from .models import (
 )
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
+
+# Load blob manifest for Vercel deployment
+BLOB_MANIFEST = {}
+MANIFEST_PATH = Path(__file__).resolve().parents[3] / "blob_manifest.json"
+if MANIFEST_PATH.exists():
+    try:
+        BLOB_MANIFEST = json.loads(MANIFEST_PATH.read_text())
+    except:
+        pass
+
+
+def _get_pdf_blob_url(filename: str) -> str:
+    """Get the Blob URL for a PDF filename if available."""
+    return BLOB_MANIFEST.get(filename, "")
 
 
 def _list_pdfs_on_disk() -> list[Path]:
@@ -82,10 +97,25 @@ def _sync_pdf_index_on_request() -> None:
         _sync_pdf_index()
 
 
-def _sync_pdf_index_on_request() -> None:
-    """Optional indexing on request; disabled by default for performance."""
-    if os.environ.get("PDF_INDEX_SYNC_ON_REQUEST", "").strip().lower() in {"1", "true", "yes"}:
-        _sync_pdf_index()
+def _sync_pdf_index_from_blob() -> int:
+    """Sync PdfDocument table from blob manifest (for Vercel production)."""
+    if not BLOB_MANIFEST:
+        return 0
+    try:
+        existing = set(PdfDocument.objects.values_list("filename", flat=True))
+    except (OperationalError, ProgrammingError):
+        return 0
+    
+    to_create = []
+    for filename in BLOB_MANIFEST.keys():
+        if filename not in existing:
+            to_create.append(PdfDocument(path=filename, filename=filename))
+    
+    if to_create:
+        PdfDocument.objects.bulk_create(to_create, ignore_conflicts=True)
+    
+    return len(to_create)
+
 
 def _get_pdf_pages(pdf_path: Path) -> int:
     """Best-effort page count using pdfinfo (falls back to 1)."""
@@ -174,6 +204,10 @@ def _render_pdf_pages(pdf_path: Path) -> list[Path]:
 def start_page(request):
     """Render the landing page with project stats."""
     try:
+        # Auto-sync from blob manifest if DB is empty
+        if not PdfDocument.objects.exists() and BLOB_MANIFEST:
+            _sync_pdf_index_from_blob()
+        
         total_pdfs = PdfDocument.objects.count()
         annotated_pdfs = PdfDocument.objects.filter(annotation_count__gt=0).count()
         total_annotations = Annotation.objects.count()
@@ -231,6 +265,100 @@ def browse(request):
 def about(request):
     """Render the about page."""
     return render(request, "epstein_ui/about.html")
+
+
+def privacy(request):
+    """Render the privacy policy page."""
+    return render(request, "epstein_ui/privacy.html")
+
+
+def terms(request):
+    """Render the terms of service page."""
+    return render(request, "epstein_ui/terms.html")
+
+
+def my_annotations(request):
+    """Render the user's annotations and comments page."""
+    if not request.user.is_authenticated:
+        return redirect("/login/")
+    
+    from django.db.models import Sum, Count
+    
+    annotations = list(
+        Annotation.objects.filter(user=request.user)
+        .annotate(
+            vote_score=Sum("votes__value"),
+            comment_count=Count("comments")
+        )
+        .order_by("-created_at")
+    )
+    for ann in annotations:
+        ann.vote_score = ann.vote_score or 0
+    
+    pdf_comments = list(
+        PdfComment.objects.filter(user=request.user)
+        .select_related("pdf")
+        .prefetch_related("replies")
+        .order_by("-created_at")
+    )
+    
+    return render(request, "epstein_ui/my_annotations.html", {
+        "annotations": annotations,
+        "pdf_comments": pdf_comments,
+    })
+
+
+@csrf_exempt
+def report_content(request):
+    """Report inappropriate content."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Login required"}, status=401)
+    
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    content_type = payload.get("type", "").strip()
+    content_id = payload.get("id", "").strip()
+    reason = payload.get("reason", "").strip()
+    
+    if not content_type or not content_id:
+        return JsonResponse({"error": "Missing content type or ID"}, status=400)
+    
+    # Create a GitHub issue for moderation
+    github_token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not github_token:
+        # Silently accept report even without GitHub integration
+        return JsonResponse({"ok": True, "message": "Report received"})
+    
+    body = f"**Content Type:** {content_type}\n**Content ID:** {content_id}\n**Reason:** {reason or 'Not specified'}\n\n---\nReported by user: {request.user.username}"
+    
+    issue_data = json.dumps({
+        "title": f"[Content Report] {content_type} - {content_id[:20]}",
+        "body": body,
+        "labels": ["content-report", "moderation"],
+    }).encode("utf-8")
+    
+    try:
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/artischocki/epstein-studio/issues",
+            data=issue_data,
+            headers={
+                "Authorization": f"token {github_token}",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except:
+        pass  # Silently fail
+    
+    return JsonResponse({"ok": True, "message": "Report submitted for review"})
 
 
 GITHUB_REPO = "artischocki/epstein-studio"
@@ -303,14 +431,42 @@ def random_pdf(request):
     if not pdfs:
         pdf_paths = _list_pdfs_on_disk()
         if not pdf_paths:
+            # Check if we have blob manifest
+            if BLOB_MANIFEST:
+                filename = random.choice(list(BLOB_MANIFEST.keys()))
+                return JsonResponse({
+                    "pages": [],
+                    "pdf": filename,
+                    "pdf_url": BLOB_MANIFEST[filename],
+                    "use_pdfjs": True,
+                })
             return JsonResponse({"error": "No PDFs found"}, status=404)
         pdf_path = random.choice(pdf_paths)
     else:
         pdf_doc = random.choice(pdfs)
         pdf_path = Path(pdf_doc.path)
+    
+    # Check if we should use blob storage (Vercel production)
+    blob_url = _get_pdf_blob_url(pdf_path.name)
+    if blob_url and not pdf_path.exists():
+        return JsonResponse({
+            "pages": [],
+            "pdf": pdf_path.name,
+            "pdf_url": blob_url,
+            "use_pdfjs": True,
+        })
+    
     try:
         png_paths = _render_pdf_pages(pdf_path)
     except Exception as exc:
+        # Fallback to blob if local rendering fails
+        if blob_url:
+            return JsonResponse({
+                "pages": [],
+                "pdf": pdf_path.name,
+                "pdf_url": blob_url,
+                "use_pdfjs": True,
+            })
         return JsonResponse({"error": str(exc)}, status=500)
 
     pages = []
@@ -337,23 +493,58 @@ def search_pdf(request):
         return JsonResponse({"error": "Missing query"}, status=400)
 
     pdf_path = None
+    pdf_filename = None
     try:
         _sync_pdf_index_on_request()
         match = PdfDocument.objects.filter(filename__icontains=query).first()
         if match:
             pdf_path = Path(match.path)
+            pdf_filename = match.filename
     except (OperationalError, ProgrammingError):
         pdf_path = None
 
     if pdf_path is None:
         pdfs = _list_pdfs_on_disk()
         matches = [p for p in pdfs if query.lower() in p.name.lower()]
-        if not matches:
+        if matches:
+            pdf_path = matches[0]
+            pdf_filename = pdf_path.name
+        elif BLOB_MANIFEST:
+            # Search in blob manifest
+            matches = [k for k in BLOB_MANIFEST.keys() if query.lower() in k.lower()]
+            if matches:
+                pdf_filename = matches[0]
+                return JsonResponse({
+                    "pages": [],
+                    "pdf": pdf_filename,
+                    "pdf_url": BLOB_MANIFEST[pdf_filename],
+                    "use_pdfjs": True,
+                })
             return JsonResponse({"error": "No match"}, status=404)
-        pdf_path = matches[0]
+        else:
+            return JsonResponse({"error": "No match"}, status=404)
+    
+    # Check if we should use blob storage (Vercel production)
+    blob_url = _get_pdf_blob_url(pdf_filename or pdf_path.name)
+    if blob_url and not pdf_path.exists():
+        return JsonResponse({
+            "pages": [],
+            "pdf": pdf_filename or pdf_path.name,
+            "pdf_url": blob_url,
+            "use_pdfjs": True,
+        })
+    
     try:
         png_paths = _render_pdf_pages(pdf_path)
     except Exception as exc:
+        # Fallback to blob if local rendering fails
+        if blob_url:
+            return JsonResponse({
+                "pages": [],
+                "pdf": pdf_filename or pdf_path.name,
+                "pdf_url": blob_url,
+                "use_pdfjs": True,
+            })
         return JsonResponse({"error": str(exc)}, status=500)
 
     pages = []
@@ -378,16 +569,26 @@ def search_suggestions(request):
     query = (request.GET.get("q") or "").strip()
     suggestions = []
     try:
+        # Auto-sync from blob manifest if DB is empty
+        if not PdfDocument.objects.exists() and BLOB_MANIFEST:
+            _sync_pdf_index_from_blob()
         _sync_pdf_index_on_request()
         qs = PdfDocument.objects.all()
         if query:
             qs = qs.filter(filename__icontains=query)
         suggestions = list(qs.order_by("filename").values_list("filename", flat=True)[:12])
     except (OperationalError, ProgrammingError):
-        pdfs = _list_pdfs_on_disk()
-        if query:
-            pdfs = [p for p in pdfs if query.lower() in p.name.lower()]
-        suggestions = [p.name for p in sorted(pdfs, key=lambda p: p.name)[:12]]
+        # Fallback to blob manifest keys
+        if BLOB_MANIFEST:
+            filenames = sorted(BLOB_MANIFEST.keys())
+            if query:
+                filenames = [f for f in filenames if query.lower() in f.lower()]
+            suggestions = filenames[:12]
+        else:
+            pdfs = _list_pdfs_on_disk()
+            if query:
+                pdfs = [p for p in pdfs if query.lower() in p.name.lower()]
+            suggestions = [p.name for p in sorted(pdfs, key=lambda p: p.name)[:12]]
     return JsonResponse({"suggestions": suggestions})
 
 
@@ -396,14 +597,36 @@ def browse_list(request):
     page = request.GET.get("page") or "1"
     sort = (request.GET.get("sort") or "name").lower()
     query = (request.GET.get("q") or "").strip()
+    dataset = (request.GET.get("dataset") or "").strip()
     try:
         page_num = max(1, int(page))
     except ValueError:
         page_num = 1
     page_size = 50
+    
+    # Auto-sync from blob manifest if DB is empty
+    try:
+        if not PdfDocument.objects.exists() and BLOB_MANIFEST:
+            _sync_pdf_index_from_blob()
+    except (OperationalError, ProgrammingError):
+        pass
+    
     qs = PdfDocument.objects.all()
     if query:
         qs = qs.filter(filename__icontains=query)
+    
+    # Filter by dataset if specified
+    # Datasets are numbered 1-12, files are typically in format like "dataset_X_..." or have prefixes
+    if dataset:
+        # Try multiple patterns to match dataset numbering conventions
+        qs = qs.filter(
+            Q(filename__istartswith=f"dataset{dataset}_") |
+            Q(filename__istartswith=f"dataset_{dataset}_") |
+            Q(filename__istartswith=f"ds{dataset}_") |
+            Q(filename__icontains=f"_dataset{dataset}_") |
+            Q(filename__icontains=f"_ds{dataset}_")
+        )
+    
     if sort == "promising":
         qs = qs.order_by("-vote_score", "filename")
     elif sort == "least":

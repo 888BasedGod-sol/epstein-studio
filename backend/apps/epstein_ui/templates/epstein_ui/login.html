@@ -50,15 +50,21 @@
             </div>
             
             {% if form.errors %}
-              <div class="login-error">Invalid username or password.</div>
+              <div class="login-error">
+                {% if form.non_field_errors %}
+                  {{ form.non_field_errors|join:", " }}
+                {% else %}
+                  Invalid username or password.
+                {% endif %}
+              </div>
             {% endif %}
             
-            <form method="post" class="login-form">
+            <form method="post" class="login-form" action="{% url 'login' %}">
               {% csrf_token %}
-              {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+              <input type="hidden" name="next" value="{{ next|default:'/' }}" />
               <label class="field">
                 <span>Username</span>
-                <input type="text" name="username" autocomplete="username" required autofocus />
+                <input type="text" name="username" autocomplete="username" required autofocus value="{{ form.username.value|default:'' }}" />
               </label>
               <label class="field">
                 <span>Password</span>
