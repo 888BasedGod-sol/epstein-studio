@@ -13,8 +13,11 @@ Reference: https://github.com/yung-megafone/Epstein-Files
 import os
 import sys
 import zipfile
+import ipaddress
+import socket
 import urllib.request
 import urllib.error
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 import hashlib
@@ -126,11 +129,49 @@ DATASETS = {
 # Where to store downloads and extracted PDFs
 DOWNLOAD_DIR = Path(__file__).parent.parent / "downloads"
 DATA_DIR = Path(__file__).parent.parent / "data"
+ALLOWED_DOWNLOAD_HOSTS = {"archive.org", "copyparty.vvv.systems", "www.justice.gov"}
+
+
+def is_allowed_download_url(url: str) -> bool:
+    """Allow only HTTPS downloads from approved mirror hosts."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+
+    if parsed.scheme != "https" or not parsed.hostname:
+        return False
+
+    hostname = parsed.hostname.lower()
+    if hostname not in ALLOWED_DOWNLOAD_HOSTS:
+        return False
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+
+    for _, _, _, _, sockaddr in addr_info:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+
+    return True
 
 
 def download_file(url: str, dest: Path, expected_size_mb: int = 0) -> bool:
     """Download a file with progress reporting and resumption support."""
     print(f"  📥 Downloading from: {url}")
+    if not is_allowed_download_url(url):
+        print(f"     ❌ Blocked non-allowlisted URL: {url}")
+        return False
     
     # Check if partial download exists
     existing_size = dest.stat().st_size if dest.exists() else 0
@@ -186,7 +227,10 @@ def download_file(url: str, dest: Path, expected_size_mb: int = 0) -> bool:
     except urllib.error.HTTPError as e:
         print(f"     ❌ HTTP error: {e.code} {e.reason}")
         return False
-    except Exception as e:
+    except urllib.error.URLError as e:
+        print(f"     ❌ URL error: {e.reason}")
+        return False
+    except OSError as e:
         print(f"     ❌ Error: {e}")
         return False
 
